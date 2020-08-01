@@ -2,6 +2,8 @@
 module Data where
 
 import Control.Lens
+import Data.Maybe
+import Data.Monoid
 
 data Alignment = Good
                | Evil
@@ -62,11 +64,36 @@ shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
 
 nominateChancellor game playerIndex = game {_chancellorCandidate = playerIndex, _phase = Vote}
 
-setVote game playerIndex vote = set (players.ix playerIndex.vote) _vote
+setVote game playerIndex vote' = let game' = set (players.ix playerIndex.vote) vote' game in
+  if anyOf (players.folded.vote) isNothing game'
+  then game'
+  else if getSum (foldMapOf (players.folded.vote._Just) boolToSum game') > 0
+    then game'{ -- majority voted yes
+      _phase=PresidentDiscardPolicy,
+      _president=_presidentialCandidate game',
+      _chancellor = _chancellorCandidate game'
+    }
+    else game'{ -- majority voted no (or tie)
+      _phase = NominateChancellor
+      -- TODO select next _presidentialCandidate and advance election tracker
+    }
+  where boolToSum b = if b then Sum 1 else Sum (-1)
 
-getCurrentHandSize game = case _phase game of
-  PresidentDiscardPolicy  -> 3
-  ChancellorDiscardPolicy -> 2
+-- getVoteResult game =
+--   if noneOf players.each.vote isNothing game
+--   then Nothing
+--   else foldMapOf players.each.vote (fmap (\b -> case b of True -> 1 False -> -1))
+
+class GetCurrentHandSize a where
+  getCurrentHandSize :: Num n => a -> n
+
+instance GetCurrentHandSize Game where
+  getCurrentHandSize game = getCurrentHandSize (_phase game)
+
+instance GetCurrentHandSize GamePhase where
+  getCurrentHandSize phase = case phase of
+    PresidentDiscardPolicy  -> 3
+    ChancellorDiscardPolicy -> 2
 
 getCurrentHand game = take (getCurrentHandSize game) (_drawPile game)
 

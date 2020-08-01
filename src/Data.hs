@@ -1,4 +1,7 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Data where
+
+import Control.Lens
 
 data Alignment = Good
                | Evil
@@ -13,10 +16,11 @@ getAlignment GoodRole = Good
 getAlignment _        = Evil
 
 data Player = Player {
-  role  :: Role,
-  vote  :: Maybe Bool,
-  alive :: Bool
+  _role  :: Role,
+  _vote  :: Maybe Bool,
+  _alive :: Bool
 } deriving (Show)
+makeLenses ''Player
 
 data Policy = GoodPolicy
             | EvilPolicy
@@ -29,36 +33,46 @@ data GamePhase = NominateChancellor
   deriving (Show)
 
 data Game = Game {
-  phase                 :: GamePhase,
-  players               :: [Player],
-  drawPile              :: [Policy],
-  evilPolicies          :: Int,
-  goodPolicies          :: Int,
-  presidentialCandidate :: Maybe Int,
-  chancellorCandidate   :: Maybe Int,
-  president             :: Maybe Int,
-  chancellor            :: Maybe Int
+  _phase                 :: GamePhase,
+  _players               :: [Player],
+  _drawPile              :: [Policy],
+  _evilPolicies          :: Int,
+  _goodPolicies          :: Int,
+  _presidentialCandidate :: Maybe Int,
+  _chancellorCandidate   :: Maybe Int,
+  _president             :: Maybe Int,
+  _chancellor            :: Maybe Int
 } deriving (Show)
+makeLenses ''Game
 
 newGame = Game {
-  phase = NominateChancellor,
-  players = [],
-  drawPile = shuffleDrawPile 6 11,
-  evilPolicies = 0,
-  goodPolicies = 0,
-  presidentialCandidate = Nothing,
-  chancellorCandidate = Nothing,
-  president = Nothing,
-  chancellor = Nothing
+  _phase = NominateChancellor,
+  _players = [],
+  _drawPile = shuffleDrawPile 6 11,
+  _evilPolicies = 0,
+  _goodPolicies = 0,
+  _presidentialCandidate = Nothing,
+  _chancellorCandidate = Nothing,
+  _president = Nothing,
+  _chancellor = Nothing
 }
 
 -- TODO Random order
 shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
 
-nominateChancellor game playerIndex = game {chancellorCandidate = playerIndex, phase = Vote}
+nominateChancellor game playerIndex = game {_chancellorCandidate = playerIndex, _phase = Vote}
 
-setVote game playerIndex vote = undefined
+setVote game playerIndex vote = set (players.ix playerIndex.vote) _vote
 
-getCurrentHand game = case phase game of
-  PresidentDiscardPolicy -> take 3 (drawPile game)
-  ChancellorDiscardPolicy -> take 2 (drawPile game)
+getCurrentHandSize game = case _phase game of
+  PresidentDiscardPolicy  -> 3
+  ChancellorDiscardPolicy -> 2
+
+getCurrentHand game = take (getCurrentHandSize game) (_drawPile game)
+
+removeElement index list = take index list ++ drop (index + 1) list
+
+discardPolicy game policyIndex =
+  if policyIndex < 0 || getCurrentHandSize game <= policyIndex
+  then error "Cannot discard policy outside of current hand"
+  else over drawPile (removeElement policyIndex) game

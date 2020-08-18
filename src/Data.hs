@@ -1,9 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Data where
 
-import Control.Lens
-import Data.Maybe
-import Data.Monoid
+import           Control.Lens
+import           Data.Maybe
+import           Data.Monoid
 
 data Alignment = Good
                | Evil
@@ -62,15 +62,16 @@ newGame = Game {
 -- TODO Random order
 shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
 
-nominateChancellor game playerIndex = game {_chancellorCandidate = playerIndex, _phase = Vote}
+nominateChancellor playerIndex game = game {_chancellorCandidate = playerIndex, _phase = Vote}
 
-setVote game playerIndex vote' = let game' = set (players.ix playerIndex.vote) vote' game in
+setVote playerIndex vote' game =
+  let game' = set (players.ix playerIndex.vote) vote' game in
   if anyOf (players.folded.vote) isNothing game'
   then game'
   else if getSum (foldMapOf (players.folded.vote._Just) boolToSum game') > 0
     then game'{ -- majority voted yes
-      _phase=PresidentDiscardPolicy,
-      _president=_presidentialCandidate game',
+      _phase = PresidentDiscardPolicy,
+      _president = _presidentialCandidate game',
       _chancellor = _chancellorCandidate game'
     }
     else game'{ -- majority voted no (or tie)
@@ -78,11 +79,6 @@ setVote game playerIndex vote' = let game' = set (players.ix playerIndex.vote) v
       -- TODO select next _presidentialCandidate and advance election tracker
     }
   where boolToSum b = if b then Sum 1 else Sum (-1)
-
--- getVoteResult game =
---   if noneOf players.each.vote isNothing game
---   then Nothing
---   else foldMapOf players.each.vote (fmap (\b -> case b of True -> 1 False -> -1))
 
 class GetCurrentHandSize a where
   getCurrentHandSize :: Num n => a -> n
@@ -99,7 +95,7 @@ getCurrentHand game = take (getCurrentHandSize game) (_drawPile game)
 
 removeElement index list = take index list ++ drop (index + 1) list
 
-discardPolicy game policyIndex =
+discardPolicy policyIndex game =
   if policyIndex < 0 || getCurrentHandSize game <= policyIndex
   then error "Cannot discard policy outside of current hand"
   else over drawPile (removeElement policyIndex) game

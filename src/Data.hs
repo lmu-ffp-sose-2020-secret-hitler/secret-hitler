@@ -112,7 +112,8 @@ selectNextPresidentialCandidate :: Game -> Game
 selectNextPresidentialCandidate game =
   let playerCount = length (_players game) in
   over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game{
-    _phase = NominateChancellor
+    _phase = NominateChancellor,
+    _chancellorCandidate = Nothing
   }
 
 advanceElectionTracker :: Game -> Game

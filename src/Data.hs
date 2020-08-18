@@ -78,12 +78,12 @@ setVote playerIndex vote' game =
   then game'
   else if getSum (foldMapOf (players.folded.vote._Just) boolToSum game') > 0
     then -- majority voted yes
-      voteSucceded game'
+      voteSucceeded game'
     else -- majority voted no (or tie)
       voteFailed game'
   where
     boolToSum b = if b then Sum 1 else Sum (-1)
-    voteSucceded game =
+    voteSucceeded game =
       game{
         _phase = PresidentDiscardPolicy,
         _president = Just (_presidentialCandidate game),

@@ -24,6 +24,12 @@ data Player = Player{
 } deriving (Show)
 makeLenses ''Player
 
+newPlayer role = Player{
+  _role = role,
+  _vote = Nothing,
+  _alive = True
+}
+
 data Policy = GoodPolicy
             | EvilPolicy
   deriving (Show)
@@ -40,7 +46,7 @@ data Game = Game{
   _drawPile              :: [Policy],
   _goodPolicies          :: Int,
   _evilPolicies          :: Int,
-  _presidentialCandidate :: Maybe Int,
+  _presidentialCandidate :: Int,
   _chancellorCandidate   :: Maybe Int,
   _president             :: Maybe Int,
   _chancellor            :: Maybe Int,
@@ -54,7 +60,7 @@ newGame = Game{
   _drawPile = shuffleDrawPile 6 11,
   _evilPolicies = 0,
   _goodPolicies = 0,
-  _presidentialCandidate = Nothing,
+  _presidentialCandidate = 0,
   _chancellorCandidate = Nothing,
   _president = Nothing,
   _chancellor = Nothing,
@@ -80,14 +86,17 @@ setVote playerIndex vote' game =
     voteSucceded game =
       game{
         _phase = PresidentDiscardPolicy,
-        _president = _presidentialCandidate game,
+        _president = Just (_presidentialCandidate game),
         _chancellor = _chancellorCandidate game
       }
     voteFailed game =
-      advanceElectionTracker game{
+      selectNextPresidentialCandidate $ advanceElectionTracker game{
         _phase = NominateChancellor
-        -- TODO select next _presidentialCandidate
       }
+
+selectNextPresidentialCandidate game =
+  let playerCount = length (_players game) in
+  over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game
 
 advanceElectionTracker game =
   if _electionTracker game < 2

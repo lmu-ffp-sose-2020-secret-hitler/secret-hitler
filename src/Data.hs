@@ -84,14 +84,18 @@ shuffleDrawPile :: Int -> Int -> [Policy]
 shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
 
 nominateChancellor :: Int -> Game -> Game
-nominateChancellor playerIndex game = game{_chancellorCandidate = Just playerIndex, _phase = Vote}
+nominateChancellor playerIndex game =
+  set (players.each.vote) Nothing game{
+    _chancellorCandidate = Just playerIndex,
+    _phase = Vote
+  }
 
 setVote :: Int -> Maybe Bool -> Game -> Game
 setVote playerIndex vote' game =
   let game' = set (players.ix playerIndex.vote) vote' game in
-  if anyOf (players.folded.vote) isNothing game'
+  if anyOf (players.each.vote) isNothing game'
   then game'
-  else if getSum (foldMapOf (players.folded.vote._Just) boolToSum game') > 0
+  else if getSum (foldMapOf (players.each.vote._Just) boolToSum game') > 0
     then -- majority voted yes
       voteSucceeded game'
     else -- majority voted no (or tie)

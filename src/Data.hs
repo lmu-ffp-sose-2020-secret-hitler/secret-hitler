@@ -56,10 +56,10 @@ data Game = Game{
 } deriving (Show)
 makeLenses ''Game
 
-newGame :: Game
-newGame = Game{
+newGame :: Int -> Game
+newGame playerCount = Game{
   _phase = NominateChancellor,
-  _players = [],
+  _players = shufflePlayers playerCount,
   _drawPile = shuffleDrawPile 6 11,
   _evilPolicies = 0,
   _goodPolicies = 0,
@@ -69,6 +69,15 @@ newGame = Game{
   _chancellor = Nothing,
   _electionTracker = 0
 }
+
+-- TODO Random order
+shufflePlayers :: Int -> [Player]
+shufflePlayers playerCount =
+  let roles = case playerCount of
+                5 -> EvilLeaderRole : EvilRole : replicate 3 GoodRole
+                6 -> EvilLeaderRole : EvilRole : replicate 4 GoodRole
+  in
+  map newPlayer roles
 
 -- TODO Random order
 shuffleDrawPile :: Int -> Int -> [Policy]

@@ -14,6 +14,7 @@ data Role = GoodRole
           | EvilLeaderRole
   deriving (Show)
 
+getAlignment :: Role -> Alignment
 getAlignment GoodRole = Good
 getAlignment _        = Evil
 
@@ -24,6 +25,7 @@ data Player = Player{
 } deriving (Show)
 makeLenses ''Player
 
+newPlayer :: Role -> Player
 newPlayer role = Player{
   _role = role,
   _vote = Nothing,
@@ -54,6 +56,7 @@ data Game = Game{
 } deriving (Show)
 makeLenses ''Game
 
+newGame :: Game
 newGame = Game{
   _phase = NominateChancellor,
   _players = [],
@@ -68,10 +71,13 @@ newGame = Game{
 }
 
 -- TODO Random order
+shuffleDrawPile :: Int -> Int -> [Policy]
 shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
 
-nominateChancellor playerIndex game = game{_chancellorCandidate = playerIndex, _phase = Vote}
+nominateChancellor :: Int -> Game -> Game
+nominateChancellor playerIndex game = game{_chancellorCandidate = Just playerIndex, _phase = Vote}
 
+setVote :: Int -> Maybe Bool -> Game -> Game
 setVote playerIndex vote' game =
   let game' = set (players.ix playerIndex.vote) vote' game in
   if anyOf (players.folded.vote) isNothing game'
@@ -93,12 +99,14 @@ setVote playerIndex vote' game =
       selectNextPresidentialCandidate $ advanceElectionTracker game
 
 -- TODO: dead players can't run for president
+selectNextPresidentialCandidate :: Game -> Game
 selectNextPresidentialCandidate game =
   let playerCount = length (_players game) in
   over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game{
     _phase = NominateChancellor
   }
 
+advanceElectionTracker :: Game -> Game
 advanceElectionTracker game =
   if _electionTracker game < 2
   then over electionTracker (+1) game
@@ -115,10 +123,13 @@ instance GetCurrentHandSize GamePhase where
     PresidentDiscardPolicy  -> 3
     ChancellorDiscardPolicy -> 2
 
+getCurrentHand :: Game -> [Policy]
 getCurrentHand game = take (getCurrentHandSize game) (_drawPile game)
 
+removeElement :: Int -> [a] -> [a]
 removeElement index list = take index list ++ drop (index + 1) list
 
+discardPolicy :: Int -> Game -> Game
 discardPolicy policyIndex game =
   let game' = removePolicy policyIndex game in
   case _phase game' of
@@ -130,6 +141,7 @@ discardPolicy policyIndex game =
         then error "Cannot discard policy outside of current hand"
         else over drawPile (removeElement policyIndex) game
 
+enactTopPolicy :: Game -> Game
 enactTopPolicy game =
   let (policy:drawPile) = _drawPile game
       game' = game{_drawPile = drawPile}

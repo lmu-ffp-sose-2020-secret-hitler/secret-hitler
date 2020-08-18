@@ -90,13 +90,13 @@ setVote playerIndex vote' game =
         _chancellor = _chancellorCandidate game
       }
     voteFailed game =
-      selectNextPresidentialCandidate $ advanceElectionTracker game{
-        _phase = NominateChancellor
-      }
+      selectNextPresidentialCandidate $ advanceElectionTracker game
 
 selectNextPresidentialCandidate game =
   let playerCount = length (_players game) in
-  over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game
+  over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game{
+    _phase = NominateChancellor
+  }
 
 advanceElectionTracker game =
   if _electionTracker game < 2
@@ -122,7 +122,7 @@ discardPolicy policyIndex game =
   let game' = removePolicy policyIndex game in
   case _phase game' of
     PresidentDiscardPolicy  -> game'{_phase = ChancellorDiscardPolicy}
-    ChancellorDiscardPolicy -> enactTopPolicy game'
+    ChancellorDiscardPolicy -> selectNextPresidentialCandidate $ enactTopPolicy game'
     where
       removePolicy policyIndex game =
         if policyIndex < 0 || getCurrentHandSize game <= policyIndex

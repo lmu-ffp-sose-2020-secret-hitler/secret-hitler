@@ -92,6 +92,7 @@ setVote playerIndex vote' game =
     voteFailed game =
       selectNextPresidentialCandidate $ advanceElectionTracker game
 
+-- TODO: dead players can't run for president
 selectNextPresidentialCandidate game =
   let playerCount = length (_players game) in
   over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game{

@@ -37,16 +37,24 @@ data Election =
 
 data PresidentDiscardPolicy =
   MakePresidentDiscardPolicy
-   {
-     electionResult :: HashMap Username Vote
-   }
-   deriving stock (Show, Generic)
+    {
+      electionResult :: HashMap Username Vote,
+      chancellor :: Username
+    }
+    deriving stock (Show, Generic)
+
+data ChancellorDiscardPolicy =
+  MakeChancellorDiscardPolicy
+    {
+      chancellor :: Username
+    }
+    deriving stock (Show, Generic)
 
 data GamePhase =
   ChancellorNomination |
   Election Election |
   PresidentDiscardPolicy PresidentDiscardPolicy |
-  ChancellorDiscardPolicy
+  ChancellorDiscardPolicy ChancellorDiscardPolicy
   deriving stock (Show)
 
 data Player =
@@ -62,9 +70,11 @@ data Game =
       phase :: GamePhase,
       players :: HashMap Username Player,
       electionTracker :: Integer,
-      presidentialCandidateStack :: InfiniteList Username,
-      president :: Maybe Username, -- there is no president in the very first round
-      chancellor :: Maybe Username -- there is no chancellor in the very first round
+      presidentStack :: InfiniteList Username,
+      -- there has not been any presidents previously in the very first round
+      presidentPrevious :: Maybe Username,
+       -- there has not been any chancellors previously in the very first round
+      chancellorPrevious :: Maybe Username
     }
   deriving stock (Show, Generic)
 
@@ -87,9 +97,9 @@ gameInitial players =
       phase = ChancellorNomination,
       players,
       electionTracker = 0,
-      presidentialCandidateStack = InfiniteList.cycle (HashMap.keys players),
-      president = Nothing,
-      chancellor = Nothing
+      presidentStack = InfiniteList.cycle (HashMap.keys players),
+      presidentPrevious = Nothing,
+      chancellorPrevious = Nothing
     }
 
 getAlignment :: Role -> Alignment
@@ -101,10 +111,9 @@ update game@(Game {phase}) (UserInput actor userInput)
   | Election election <- phase, Vote vote <- userInput =
     let
       preliminaryResultNew :: HashMap Username (Maybe Vote)
-      preliminaryResultNew = HashMap.insert actor (Just vote) (election ^. #preliminaryResult)
+      preliminaryResultNew =
+        HashMap.insert actor (Just vote) (election ^. #preliminaryResult)
     in
-      #presidentialCandidateStack %~ (view #tail)
-      $
       -- try and convert the new preliminary result into a final result
       case sequenceA preliminaryResultNew of
         Nothing ->
@@ -112,15 +121,13 @@ update game@(Game {phase}) (UserInput actor userInput)
         Just finalResult ->
           if getSum (foldMap voteToSum finalResult) > 0
           then
-            (#phase .~ PresidentDiscardPolicy (MakePresidentDiscardPolicy finalResult))
-            .
-            (#chancellor .~ Just (election ^. #chancellorCandidate))
-            .
-            (#president .~ Just (game ^. #presidentialCandidateStack . #head))
+            (#phase .~ PresidentDiscardPolicy (MakePresidentDiscardPolicy finalResult (election ^. #chancellorCandidate)))
             .
             (#electionTracker .~ 0)
           else
             (#phase .~ ChancellorNomination)
+            .
+            (#presidentStack %~ (view #tail))
             .
             (#electionTracker %~ (+1))
       $

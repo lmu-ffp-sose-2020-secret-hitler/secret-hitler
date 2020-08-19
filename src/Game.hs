@@ -1,6 +1,7 @@
 module Game where
 
 import Data.InfiniteList as InfiniteList
+import Data.Composition
 import Control.Lens
 import Data.Text (Text)
 import Data.Monoid
@@ -121,7 +122,13 @@ update game@(Game {phase}) (UserInput actor userInput)
         Just finalResult ->
           if getSum (foldMap voteToSum finalResult) > 0
           then
-            (#phase .~ PresidentDiscardPolicy (MakePresidentDiscardPolicy finalResult (election ^. #chancellorCandidate)))
+            (
+              #phase
+              .~
+              (PresidentDiscardPolicy .: MakePresidentDiscardPolicy)
+                finalResult
+                (election ^. #chancellorCandidate)
+            )
             .
             (#electionTracker .~ 0)
           else

@@ -49,6 +49,7 @@ library:
   - hashable
   - lens
   - generic-lens
+  - composition
 
 executables:
   secret-hitler-exe:

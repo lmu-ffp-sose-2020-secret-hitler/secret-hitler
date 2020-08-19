@@ -21,10 +21,34 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
-- lens
+
+ghc-options:
+- -Weverything
+- -Wno-implicit-prelude
+- -Wno-missing-export-lists
+- -Wno-missing-import-lists
+- -Wno-unsafe
+
+default-extensions:
+- DeriveGeneric
+- GeneralizedNewtypeDeriving
+- DerivingStrategies
+- NamedFieldPuns
+- MultiParamTypeClasses
+- FunctionalDependencies
+- FlexibleInstances
+- OverloadedStrings
+- OverloadedLabels
+- DuplicateRecordFields
 
 library:
   source-dirs: src
+  dependencies:
+  - text
+  - unordered-containers
+  - hashable
+  - lens
+  - generic-lens
 
 executables:
   secret-hitler-exe:

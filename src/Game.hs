@@ -1,5 +1,6 @@
 module Game where
 
+import Data.Bool (bool)
 import Data.InfiniteList as InfiniteList
 import Data.Composition
 import Control.Lens
@@ -32,7 +33,7 @@ data Election =
   MakeElection
     {
       chancellorCandidate :: Username,
-      preliminaryResult :: HashMap Username (Maybe Vote)
+      preliminaryResult :: HashMap Username Vote
     }
   deriving stock (Show, Generic)
 
@@ -111,34 +112,44 @@ update :: Game -> Event -> Game
 update game@(Game {phase}) (UserInput actor userInput)
   | Election election <- phase, Vote vote <- userInput =
     let
-      preliminaryResultNew :: HashMap Username (Maybe Vote)
+      preliminaryResultNew :: HashMap Username Vote
       preliminaryResultNew =
-        HashMap.insert actor (Just vote) (election ^. #preliminaryResult)
+        HashMap.insert actor vote (election ^. #preliminaryResult)
+      electionIsComplete :: Bool
+      electionIsComplete =
+        all
+          (flip HashMap.member preliminaryResultNew)
+          (HashMap.keys (game ^. #players))
+      succeedElection :: Game -> Game
+      succeedElection =
+        (
+          #phase
+          .~
+          (PresidentDiscardPolicy .: MakePresidentDiscardPolicy)
+              preliminaryResultNew
+              (election ^. #chancellorCandidate)
+        )
+        .
+        (#electionTracker .~ 0)
+      failElection :: Game -> Game
+      failElection =
+        (#phase .~ ChancellorNomination)
+        .
+        (#presidentStack %~ (view #tail))
+        .
+        (#electionTracker %~ (+1))
     in
-      -- try and convert the new preliminary result into a final result
-      case sequenceA preliminaryResultNew of
-        Nothing ->
+      (
+        if not electionIsComplete
+        then
           #phase .~ Election (election & #preliminaryResult .~ preliminaryResultNew)
-        Just finalResult ->
-          if getSum (foldMap voteToSum finalResult) > 0
-          then
-            (
-              #phase
-              .~
-              (PresidentDiscardPolicy .: MakePresidentDiscardPolicy)
-                finalResult
-                (election ^. #chancellorCandidate)
-            )
-            .
-            (#electionTracker .~ 0)
-          else
-            (#phase .~ ChancellorNomination)
-            .
-            (#presidentStack %~ (view #tail))
-            .
-            (#electionTracker %~ (+1))
-      $
-      game
+        else
+          bool
+            failElection
+            succeedElection
+            (getSum (foldMap voteToSum preliminaryResultNew) > 0)
+      )
+        game
   | otherwise = error "invalid input" -- to-do. exception handling
 
 voteToSum :: Vote -> Sum Integer

@@ -1,8 +1,6 @@
 module Game where
 
-import Data.Bool (bool)
 import Data.InfiniteList as InfiniteList
-import Data.Composition
 import Control.Lens
 import Data.Text (Text)
 import Data.Monoid
@@ -40,7 +38,6 @@ data Election =
 data PresidentDiscardPolicy =
   MakePresidentDiscardPolicy
     {
-      electionResult :: HashMap Username Vote,
       chancellor :: Username
     }
     deriving stock (Show, Generic)
@@ -85,12 +82,19 @@ data Alignment =
   Evil
   deriving stock (Show)
 
-data Event =
+data ClientEvent =
   UserInput Username UserInput
+
+data ServerEvent =
+  SucceedElection (HashMap Username Vote) |
+  FailElection (HashMap Username Vote)
 
 data UserInput =
   Vote Vote |
   NominateChancellor Username
+
+data ServerMessage =
+  ServerMessage Game (Maybe ServerEvent)
 
 gameInitial :: HashMap Username Player -> Game
 gameInitial players =
@@ -108,7 +112,7 @@ getAlignment :: Role -> Alignment
 getAlignment GoodRole = Good
 getAlignment _ = Evil
 
-update :: Game -> Event -> Game
+update :: Game -> ClientEvent -> ServerMessage
 update game@(Game {phase}) (UserInput actor userInput)
   | Election election <- phase, Vote vote <- userInput =
     let
@@ -120,13 +124,15 @@ update game@(Game {phase}) (UserInput actor userInput)
         all
           (flip HashMap.member preliminaryResultNew)
           (HashMap.keys (game ^. #players))
+      updateElection :: Game -> Game
+      updateElection =
+        #phase .~ Election (election & #preliminaryResult .~ preliminaryResultNew)
       succeedElection :: Game -> Game
       succeedElection =
         (
           #phase
           .~
-          (PresidentDiscardPolicy .: MakePresidentDiscardPolicy)
-              preliminaryResultNew
+          (PresidentDiscardPolicy . MakePresidentDiscardPolicy)
               (election ^. #chancellorCandidate)
         )
         .
@@ -139,17 +145,19 @@ update game@(Game {phase}) (UserInput actor userInput)
         .
         (#electionTracker %~ (+1))
     in
-      (
-        if not electionIsComplete
+      if not electionIsComplete
+      then
+        ServerMessage (updateElection game) Nothing
+      else
+        if getSum (foldMap voteToSum preliminaryResultNew) > 0
         then
-          #phase .~ Election (election & #preliminaryResult .~ preliminaryResultNew)
+          ServerMessage
+            (succeedElection game)
+            (Just $ SucceedElection preliminaryResultNew)
         else
-          bool
-            failElection
-            succeedElection
-            (getSum (foldMap voteToSum preliminaryResultNew) > 0)
-      )
-        game
+          ServerMessage
+            (failElection game)
+            (Just $ FailElection preliminaryResultNew)
   | otherwise = error "invalid input" -- to-do. exception handling
 
 voteToSum :: Vote -> Sum Integer

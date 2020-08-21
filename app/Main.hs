@@ -1,6 +1,6 @@
 module Main where
 
-import           Data
+import           Game
 
 main :: IO ()
 main = do

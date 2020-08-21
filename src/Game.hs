@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Data where
+module Game where
 
 import           Control.Lens
 import           Data.Maybe

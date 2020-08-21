@@ -11,12 +11,12 @@ run :: Game -> IO ()
 run game = do
   print game
   case _phase game of
-    NominateChancellor -> do
+    NominateChancellorPhase -> do
       putStrLn "Nominate a chancellor"
       putStr "playerIndex: "
       playerIndex <- readLn :: IO Int
       run $ nominateChancellor playerIndex game
-    Vote -> do
+    VotePhase{} -> do
       putStrLn "Vote"
       putStr "playerIndex: "
       playerIndex <- readLn :: IO Int

@@ -37,7 +37,7 @@ data Policy = GoodPolicy
   deriving (Show)
 
 data GamePhase = NominateChancellor
-               | Vote
+               | Vote { _chancellorCandidate :: Int}
                | PresidentDiscardPolicy
                | ChancellorDiscardPolicy
   deriving (Show)
@@ -49,7 +49,6 @@ data Game = Game{
   _goodPolicies          :: Int,
   _evilPolicies          :: Int,
   _presidentialCandidate :: Int,
-  _chancellorCandidate   :: Maybe Int,
   _president             :: Maybe Int,
   _chancellor            :: Maybe Int,
   _electionTracker       :: Int
@@ -64,7 +63,6 @@ newGame playerCount = Game{
   _evilPolicies = 0,
   _goodPolicies = 0,
   _presidentialCandidate = 0,
-  _chancellorCandidate = Nothing,
   _president = Nothing,
   _chancellor = Nothing,
   _electionTracker = 0
@@ -86,38 +84,39 @@ shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
 nominateChancellor :: Int -> Game -> Game
 nominateChancellor playerIndex game =
   set (players.each.vote) Nothing game{
-    _chancellorCandidate = Just playerIndex,
-    _phase = Vote
+    _phase = Vote playerIndex
   }
 
 setVote :: Int -> Maybe Bool -> Game -> Game
 setVote playerIndex vote' game =
-  let game' = set (players.ix playerIndex.vote) vote' game in
-  if anyOf (players.each.vote) isNothing game'
-  then game'
-  else if getSum (foldMapOf (players.each.vote._Just) boolToSum game') > 0
-    then -- majority voted yes
-      voteSucceeded game'
-    else -- majority voted no (or tie)
-      voteFailed game'
-  where
-    boolToSum b = if b then Sum 1 else Sum (-1)
-    voteSucceeded game =
-      game{
-        _phase = PresidentDiscardPolicy,
-        _president = Just (_presidentialCandidate game),
-        _chancellor = _chancellorCandidate game
-      }
-    voteFailed game =
-      selectNextPresidentialCandidate $ advanceElectionTracker game
+  case _phase game of
+    Vote chancellorCandidate ->
+      let game' = set (players.ix playerIndex.vote) vote' game in
+      if anyOf (players.each.vote) isNothing game'
+      then game'
+      else if getSum (foldMapOf (players.each.vote._Just) boolToSum game') > 0
+        then -- majority voted yes
+          voteSucceeded game'
+        else -- majority voted no (or tie)
+          voteFailed game'
+      where
+        boolToSum b = if b then Sum 1 else Sum (-1)
+        voteSucceeded game =
+          game{
+            _phase = PresidentDiscardPolicy,
+            _president = Just (_presidentialCandidate game),
+            _chancellor = Just chancellorCandidate
+          }
+        voteFailed game =
+          selectNextPresidentialCandidate $ advanceElectionTracker game
+    _ -> error "wrong game phase"
 
 -- TODO: dead players can't run for president
 selectNextPresidentialCandidate :: Game -> Game
 selectNextPresidentialCandidate game =
   let playerCount = length (_players game) in
   over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game{
-    _phase = NominateChancellor,
-    _chancellorCandidate = Nothing
+    _phase = NominateChancellor
   }
 
 advanceElectionTracker :: Game -> Game

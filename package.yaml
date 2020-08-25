@@ -44,6 +44,7 @@ default-extensions:
 library:
   source-dirs: src
   dependencies:
+  - containers
   - lens
   - generic-lens
 

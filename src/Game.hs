@@ -15,9 +15,14 @@ data Role = GoodRole
           | EvilLeaderRole
   deriving stock (Show)
 
+data Vote =
+  No |
+  Yes
+  deriving stock (Show)
+
 data Player = Player{
   role  :: Role,
-  vote  :: Maybe Bool
+  vote  :: Maybe Vote
 } deriving stock (Show, Generic)
 
 data Policy = GoodPolicy

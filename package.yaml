@@ -44,9 +44,6 @@ default-extensions:
 library:
   source-dirs: src
   dependencies:
-  - text
-  - unordered-containers
-  - hashable
   - lens
   - generic-lens
 

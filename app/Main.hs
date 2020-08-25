@@ -10,7 +10,7 @@ main = do
 run :: Game -> IO ()
 run game = do
   print game
-  case _phase game of
+  case phase game of
     NominateChancellorPhase -> do
       putStrLn "Nominate a chancellor"
       putStr "playerIndex: "

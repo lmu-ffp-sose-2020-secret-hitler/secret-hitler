@@ -1,75 +1,74 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Game where
 
 import           Control.Lens
 import           Data.Maybe
 import           Data.Monoid
+import GHC.Generics (Generic)
+import Data.Generics.Labels ()
 
 data Alignment = Good
                | Evil
-  deriving (Show)
+  deriving stock (Show)
 
 data Role = GoodRole
           | EvilRole
           | EvilLeaderRole
-  deriving (Show)
+  deriving stock (Show)
 
 getAlignment :: Role -> Alignment
 getAlignment GoodRole = Good
 getAlignment _        = Evil
 
 data Player = Player{
-  _role  :: Role,
-  _vote  :: Maybe Bool,
-  _alive :: Bool
-} deriving (Show)
-makeLenses ''Player
+  role  :: Role,
+  vote  :: Maybe Bool,
+  alive :: Bool
+} deriving stock (Show, Generic)
 
 newPlayer :: Role -> Player
 newPlayer role = Player{
-  _role = role,
-  _vote = Nothing,
-  _alive = True
+  role = role,
+  vote = Nothing,
+  alive = True
 }
 
 data Policy = GoodPolicy
             | EvilPolicy
-  deriving (Show)
+  deriving stock (Show)
 
 data VotePhaseData = VotePhaseData{
-  _chancellorCandidate :: Int
-} deriving (Show)
+  chancellorCandidate :: Int
+} deriving stock (Show)
 
 data GamePhase = NominateChancellorPhase
                | VotePhase VotePhaseData
                | PresidentDiscardPolicyPhase
                | ChancellorDiscardPolicyPhase
-  deriving (Show)
+  deriving stock (Show)
 
 data Game = Game{
-  _phase                 :: GamePhase,
-  _players               :: [Player],
-  _drawPile              :: [Policy],
-  _goodPolicies          :: Int,
-  _evilPolicies          :: Int,
-  _presidentialCandidate :: Int,
-  _president             :: Maybe Int,
-  _chancellor            :: Maybe Int,
-  _electionTracker       :: Int
-} deriving (Show)
-makeLenses ''Game
+  phase                 :: GamePhase,
+  players               :: [Player],
+  drawPile              :: [Policy],
+  goodPolicies          :: Int,
+  evilPolicies          :: Int,
+  presidentialCandidate :: Int,
+  president             :: Maybe Int,
+  chancellor            :: Maybe Int,
+  electionTracker       :: Int
+} deriving stock (Show, Generic)
 
 newGame :: Int -> Game
 newGame playerCount = Game{
-  _phase = NominateChancellorPhase,
-  _players = shufflePlayers playerCount,
-  _drawPile = shuffleDrawPile 6 11,
-  _evilPolicies = 0,
-  _goodPolicies = 0,
-  _presidentialCandidate = 0,
-  _president = Nothing,
-  _chancellor = Nothing,
-  _electionTracker = 0
+  phase = NominateChancellorPhase,
+  players = shufflePlayers playerCount,
+  drawPile = shuffleDrawPile 6 11,
+  evilPolicies = 0,
+  goodPolicies = 0,
+  presidentialCandidate = 0,
+  president = Nothing,
+  chancellor = Nothing,
+  electionTracker = 0
 }
 
 -- TODO Random order
@@ -87,18 +86,18 @@ shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
 
 nominateChancellor :: Int -> Game -> Game
 nominateChancellor playerIndex game =
-  set (players.each.vote) Nothing game{
-    _phase = VotePhase VotePhaseData { _chancellorCandidate = playerIndex }
+  set (#players . each . #vote) Nothing game{
+    phase = VotePhase VotePhaseData { chancellorCandidate = playerIndex }
   }
 
 setVote :: Int -> Maybe Bool -> Game -> Game
 setVote playerIndex vote' game =
-  case _phase game of
-    VotePhase VotePhaseData { _chancellorCandidate = chancellorCandidate } ->
-      let game' = set (players.ix playerIndex.vote) vote' game in
-      if anyOf (players.each.vote) isNothing game'
+  case phase game of
+    VotePhase VotePhaseData { chancellorCandidate = chancellorCandidate } ->
+      let game' = set (#players . ix playerIndex . #vote) vote' game in
+      if anyOf (#players . each . #vote) isNothing game'
       then game'
-      else if getSum (foldMapOf (players.each.vote._Just) boolToSum game') > 0
+      else if getSum (foldMapOf (#players . each . #vote . _Just) boolToSum game') > 0
         then -- majority voted yes
           voteSucceeded game'
         else -- majority voted no (or tie)
@@ -107,9 +106,9 @@ setVote playerIndex vote' game =
         boolToSum b = if b then Sum 1 else Sum (-1)
         voteSucceeded game =
           game{
-            _phase = PresidentDiscardPolicyPhase,
-            _president = Just (_presidentialCandidate game),
-            _chancellor = Just chancellorCandidate
+            phase = PresidentDiscardPolicyPhase,
+            president = Just (presidentialCandidate game),
+            chancellor = Just chancellorCandidate
           }
         voteFailed game =
           selectNextPresidentialCandidate $ advanceElectionTracker game
@@ -118,22 +117,22 @@ setVote playerIndex vote' game =
 -- TODO: dead players can't run for president
 selectNextPresidentialCandidate :: Game -> Game
 selectNextPresidentialCandidate game =
-  let playerCount = length (_players game) in
-  over presidentialCandidate (\it -> (it + 1) `mod` playerCount) game{
-    _phase = NominateChancellorPhase
+  let playerCount = length (players game) in
+  over #presidentialCandidate (\it -> (it + 1) `mod` playerCount) game{
+    phase = NominateChancellorPhase
   }
 
 advanceElectionTracker :: Game -> Game
 advanceElectionTracker game =
-  if _electionTracker game < 2
-  then over electionTracker (+1) game
-  else enactTopPolicy game{_electionTracker = 0}
+  if electionTracker game < 2
+  then over #electionTracker (+1) game
+  else enactTopPolicy game{electionTracker = 0}
 
 class GetCurrentHandSize a where
   getCurrentHandSize :: Num n => a -> n
 
 instance GetCurrentHandSize Game where
-  getCurrentHandSize game = getCurrentHandSize (_phase game)
+  getCurrentHandSize game = getCurrentHandSize (phase game)
 
 instance GetCurrentHandSize GamePhase where
   getCurrentHandSize phase = case phase of
@@ -141,7 +140,7 @@ instance GetCurrentHandSize GamePhase where
     ChancellorDiscardPolicyPhase -> 2
 
 getCurrentHand :: Game -> [Policy]
-getCurrentHand game = take (getCurrentHandSize game) (_drawPile game)
+getCurrentHand game = take (getCurrentHandSize game) (drawPile game)
 
 removeElement :: Int -> [a] -> [a]
 removeElement index list = take index list ++ drop (index + 1) list
@@ -149,20 +148,21 @@ removeElement index list = take index list ++ drop (index + 1) list
 discardPolicy :: Int -> Game -> Game
 discardPolicy policyIndex game =
   let game' = removePolicy policyIndex game in
-  case _phase game' of
-    PresidentDiscardPolicyPhase  -> game'{_phase = ChancellorDiscardPolicyPhase}
+  case phase game' of
+    PresidentDiscardPolicyPhase  -> game'{phase = ChancellorDiscardPolicyPhase}
     ChancellorDiscardPolicyPhase -> selectNextPresidentialCandidate $ enactTopPolicy game'
     where
+      removePolicy :: Int -> Game -> Game
       removePolicy policyIndex game =
         if policyIndex < 0 || getCurrentHandSize game <= policyIndex
         then error "Cannot discard policy outside of current hand"
-        else over drawPile (removeElement policyIndex) game
+        else over #drawPile (removeElement policyIndex) game
 
 enactTopPolicy :: Game -> Game
 enactTopPolicy game =
-  let (policy:drawPile) = _drawPile game
-      game' = game{_drawPile = drawPile}
+  let (policy:drawPile') = drawPile game
+      game' = game{drawPile = drawPile'}
   in
   case policy of
-    GoodPolicy -> over goodPolicies (+1) game'
-    EvilPolicy -> over evilPolicies (+1) game'
+    GoodPolicy -> over #goodPolicies (+1) game'
+    EvilPolicy -> over #evilPolicies (+1) game'

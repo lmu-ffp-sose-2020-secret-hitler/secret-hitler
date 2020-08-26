@@ -42,28 +42,28 @@ data Government =
     }
   deriving stock (Show)
 
-data NominateChancellorPhaseData =
-  NominateChancellorPhaseData
+data NominateChancellorPhasePayload =
+  NominateChancellorPhasePayload
     {
       governmentPrevious :: Maybe Government
     }
   deriving stock (Show)
 
-data VotePhaseData = VotePhaseData{
+data VotePhasePayload = VotePhasePayload{
   governmentPrevious :: Maybe Government,
   chancellorCandidate :: PlayerId
 } deriving stock (Show, Generic)
 
-data PresidentDiscardPolicyPhaseData =
-  PresidentDiscardPolicyPhaseData
+data PresidentDiscardPolicyPhasePayload =
+  PresidentDiscardPolicyPhasePayload
     {
       chancellor :: PlayerId
     }
   deriving stock (Show)
 
-data GamePhase = NominateChancellorPhase NominateChancellorPhaseData
-               | VotePhase VotePhaseData
-               | PresidentDiscardPolicyPhase PresidentDiscardPolicyPhaseData
+data GamePhase = NominateChancellorPhase NominateChancellorPhasePayload
+               | VotePhase VotePhasePayload
+               | PresidentDiscardPolicyPhase PresidentDiscardPolicyPhasePayload
                | ChancellorDiscardPolicyPhase
   deriving stock (Show)
 
@@ -102,13 +102,13 @@ data UserInput =
 
 update :: Game -> ClientEvent -> (Game, Maybe GameEvent)
 update game@(Game {phase}) (UserInput actor userInput)
-  | VotePhase votePhaseData <- phase, Vote vote <- userInput =
-      registreVote game votePhaseData actor vote
+  | VotePhase votePhasePayload <- phase, Vote vote <- userInput =
+      registreVote game votePhasePayload actor vote
   | otherwise = error "invalid input" -- to-do. exception handlin
 
 registreVote ::
-  Game -> VotePhaseData -> PlayerId -> Vote -> (Game, Maybe GameEvent)
-registreVote game votePhaseData actor vote =
+  Game -> VotePhasePayload -> PlayerId -> Vote -> (Game, Maybe GameEvent)
+registreVote game votePhasePayload actor vote =
   case resultOverall of
     Nothing -> (gameNew, Nothing)
     Just Yes -> (succeedVote gameNew, Just SucceedVote)
@@ -130,8 +130,8 @@ registreVote game votePhaseData actor vote =
         #phase
         (
           PresidentDiscardPolicyPhase $
-          PresidentDiscardPolicyPhaseData $
-          votePhaseData ^. #chancellorCandidate
+          PresidentDiscardPolicyPhasePayload $
+          votePhasePayload ^. #chancellorCandidate
         )
       .
       set #electionTracker 0
@@ -141,8 +141,8 @@ registreVote game votePhaseData actor vote =
         #phase
         (
           NominateChancellorPhase $
-          NominateChancellorPhaseData $
-          votePhaseData ^. #governmentPrevious
+          NominateChancellorPhasePayload $
+          votePhasePayload ^. #governmentPrevious
         )
       .
       over #presidentTracker updatePresidentTracker

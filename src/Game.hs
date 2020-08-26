@@ -7,17 +7,19 @@ import GHC.Generics (Generic)
 import Data.Generics.Labels ()
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.List.NonEmpty as NonEmpty
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Bool (bool)
 import Control.Applicative ((<|>))
 
-data Alignment = Good
-               | Evil
+data Alignment =
+  Good |
+  Evil
   deriving stock (Show)
 
-data Role = GoodRole
-          | EvilRole
-          | EvilLeaderRole
+data Role =
+  GoodRole |
+  EvilRole |
+  EvilLeaderRole
   deriving stock (Show)
 
 data Vote =
@@ -25,69 +27,69 @@ data Vote =
   Yes
   deriving stock (Show)
 
-data Player = Player{
+data Player = Player {
   role  :: Role,
-  vote  :: Maybe Vote
-} deriving stock (Show, Generic)
+  vote  :: Maybe Vote,
+  alive :: Bool
+}
+  deriving stock (Show, Generic)
 
-data Policy = GoodPolicy
-            | EvilPolicy
+data Policy =
+  GoodPolicy |
+  EvilPolicy
   deriving stock (Show)
 
-data Government =
-  Government
-    {
-      president :: PlayerId,
-      chancellor :: PlayerId
-    }
+data Government = Government {
+  president :: PlayerId,
+  chancellor :: PlayerId
+}
   deriving stock (Show)
 
-data NominateChancellorPhasePayload =
-  NominateChancellorPhasePayload
-    {
-      governmentPrevious :: Maybe Government
-    }
+data NominateChancellorPhasePayload = NominateChancellorPhasePayload {
+  governmentPrevious :: Maybe Government
+}
   deriving stock (Show)
 
-data VotePhasePayload = VotePhasePayload{
+data VotePhasePayload = VotePhasePayload {
   governmentPrevious :: Maybe Government,
   chancellorCandidate :: PlayerId
-} deriving stock (Show, Generic)
+}
+  deriving stock (Show, Generic)
 
-data PresidentDiscardPolicyPhasePayload =
-  PresidentDiscardPolicyPhasePayload
-    {
-      chancellor :: PlayerId
-    }
+data PresidentDiscardPolicyPhasePayload = PresidentDiscardPolicyPhasePayload {
+  chancellor :: PlayerId
+}
   deriving stock (Show)
 
-data GamePhase = NominateChancellorPhase NominateChancellorPhasePayload
-               | VotePhase VotePhasePayload
-               | PresidentDiscardPolicyPhase PresidentDiscardPolicyPhasePayload
-               | ChancellorDiscardPolicyPhase
+data GamePhase =
+  NominateChancellorPhase NominateChancellorPhasePayload |
+  VotePhase VotePhasePayload |
+  PresidentDiscardPolicyPhase PresidentDiscardPolicyPhasePayload |
+  ChancellorDiscardPolicyPhase
   deriving stock (Show)
 
-data PresidentTracker =
-  PresidentTracker {
+data PresidentTracker = PresidentTracker {
     president :: PlayerId,
     regularPresidentLatest :: PlayerId
-  }
+}
   deriving stock (Show, Generic)
 
 newtype PlayerId =
   PlayerId Int
   deriving newtype (Show, Eq, Ord)
 
-data Game = Game{
+data Game = Game {
   phase                 :: GamePhase,
+  -- players includes dead players too.
+  -- Use the getter alivePlayers instead of #players wherever possible.
   players               :: Map PlayerId Player,
-  deadPlayers :: Map PlayerId Player,
   drawPile              :: [Policy],
   goodPolicies          :: Int,
   evilPolicies          :: Int,
   presidentTracker :: PresidentTracker,
   electionTracker       :: Int
-} deriving stock (Show, Generic)
+}
+  deriving stock (Show, Generic)
 
 data ClientEvent =
   UserInput PlayerId UserInput
@@ -114,16 +116,19 @@ registreVote game votePhasePayload actor vote =
     Just Yes -> (succeedVote gameNew, Just SucceedVote)
     Just No -> (failVote gameNew, Just FailVote)
   where
-    gameNew :: Game
-    gameNew = set (#players . ix actor . #vote) (Just vote) game -- to-do. Are we fine with neither checking if the actor has voted already nor its existence here?
-    resultsIndividual :: Maybe (Map PlayerId Vote)
-    resultsIndividual = traverse (view #vote) (gameNew ^. #players)
     resultOverall :: Maybe (Vote)
     resultOverall =
       fmap (bool No Yes) $
       fmap (> Sum 0) $
       fmap (foldMap voteToSum) $
       resultsIndividual
+    resultsIndividual :: Maybe (Map PlayerId Vote)
+    resultsIndividual = traverse (view #vote) (gameNew ^. alivePlayers)
+    gameNew :: Game
+    gameNew = set (#players . ix actor . #vote) (Just vote) game -- to-do. Are we fine with neither checking if the actor has voted already nor its existence here?
+    voteToSum :: Vote -> Sum Integer
+    voteToSum No = Sum (-1)
+    voteToSum Yes = Sum 1
     succeedVote :: Game -> Game
     succeedVote =
       set
@@ -152,11 +157,10 @@ registreVote game votePhasePayload actor vote =
     updatePresidentTracker =
       fromMaybe (error "all players dying should not be possible")
       .
-      passPresidencyRegularly (gameNew ^. #players)
+      passPresidencyRegularly (gameNew ^. alivePlayers)
 
-voteToSum :: Vote -> Sum Integer
-voteToSum No = Sum (-1)
-voteToSum Yes = Sum 1
+alivePlayers :: Getter Game (Map PlayerId Player)
+alivePlayers = #players . to (Map.filter (view #alive))
 
 passPresidencyRegularly ::
   Map PlayerId value -> PresidentTracker -> Maybe PresidentTracker

@@ -155,22 +155,21 @@ registreVote gameOld votePhasePayload actor vote =
       over #electionTracker (+1)
     updatePresidentTracker :: PresidentTracker -> PresidentTracker
     updatePresidentTracker =
-      fromMaybe (error "all players dying should not be possible")
-      .
       passPresidencyRegularly (game ^. alivePlayers)
 
 alivePlayers :: Getter Game (Map PlayerId Player)
 alivePlayers = #players . to (Map.filter (view #alive))
 
 passPresidencyRegularly ::
-  Map PlayerId value -> PresidentTracker -> Maybe PresidentTracker
+  Map PlayerId value -> PresidentTracker -> PresidentTracker
 passPresidencyRegularly playerIds presidentTracker =
-  passPresidencyTo <$>
-    (
-      fst <$> (Map.lookupGT (presidentTracker ^. #regularPresidentLatest) playerIds)
-      <|>
-      (fmap NonEmpty.head $ NonEmpty.nonEmpty $ Map.keys $ playerIds)
-    )
+  passPresidencyTo $
+  fromMaybe (error "all players dying should not be possible") $
+  (
+    fst <$> (Map.lookupGT (presidentTracker ^. #regularPresidentLatest) playerIds)
+    <|>
+    (fmap NonEmpty.head $ NonEmpty.nonEmpty $ Map.keys $ playerIds)
+  )
   where
     passPresidencyTo :: PlayerId -> PresidentTracker
     passPresidencyTo nextPresident =

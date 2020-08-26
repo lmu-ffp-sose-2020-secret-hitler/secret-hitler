@@ -23,7 +23,8 @@ dependencies:
 - base >= 4.7 && < 5
 
 ghc-options:
-- -Wall
+- -Weverything
+- -Wno-missing-local-signatures # else ghcid crashes for unknown reasons
 - -Wno-implicit-prelude
 - -Wno-missing-export-lists
 - -Wno-missing-import-lists

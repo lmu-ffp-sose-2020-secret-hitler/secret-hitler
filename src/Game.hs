@@ -110,11 +110,11 @@ update game@(Game {phase}) (UserInput actor userInput)
 
 registreVote ::
   Game -> VotePhasePayload -> PlayerId -> Vote -> (Game, Maybe GameEvent)
-registreVote game votePhasePayload actor vote =
+registreVote gameOld votePhasePayload actor vote =
   case resultOverall of
-    Nothing -> (gameNew, Nothing)
-    Just Yes -> (succeedVote gameNew, Just SucceedVote)
-    Just No -> (failVote gameNew, Just FailVote)
+    Nothing -> (game, Nothing)
+    Just Yes -> (succeedVote game, Just SucceedVote)
+    Just No -> (failVote game, Just FailVote)
   where
     resultOverall :: Maybe (Vote)
     resultOverall =
@@ -123,9 +123,9 @@ registreVote game votePhasePayload actor vote =
       fmap (foldMap voteToSum) $
       resultsIndividual
     resultsIndividual :: Maybe (Map PlayerId Vote)
-    resultsIndividual = traverse (view #vote) (gameNew ^. alivePlayers)
-    gameNew :: Game
-    gameNew = set (#players . ix actor . #vote) (Just vote) game -- to-do. Are we fine with neither checking if the actor has voted already nor its existence here?
+    resultsIndividual = traverse (view #vote) (game ^. alivePlayers)
+    game :: Game
+    game = set (#players . ix actor . #vote) (Just vote) gameOld -- to-do. Are we fine with neither checking if the actor has voted already nor its existence here?
     voteToSum :: Vote -> Sum Integer
     voteToSum No = Sum (-1)
     voteToSum Yes = Sum 1
@@ -157,7 +157,7 @@ registreVote game votePhasePayload actor vote =
     updatePresidentTracker =
       fromMaybe (error "all players dying should not be possible")
       .
-      passPresidencyRegularly (gameNew ^. alivePlayers)
+      passPresidencyRegularly (game ^. alivePlayers)
 
 alivePlayers :: Getter Game (Map PlayerId Player)
 alivePlayers = #players . to (Map.filter (view #alive))

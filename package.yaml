@@ -41,10 +41,12 @@ default-extensions:
 - OverloadedStrings
 - OverloadedLabels
 - DuplicateRecordFields
+- TypeFamilies
 
 library:
   source-dirs: src
   dependencies:
+  - nonempty-containers
   - containers
   - lens
   - generic-lens

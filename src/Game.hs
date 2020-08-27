@@ -5,8 +5,10 @@ import           Data.Maybe
 import           Data.Monoid
 import GHC.Generics (Generic)
 import Data.Generics.Labels ()
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
+import Data.Map.NonEmpty (NEMap)
+import qualified Data.Map.NonEmpty as NEMap
+import Data.Map (Map)
+import qualified Data.Map as Map
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Bool (bool)
 import Control.Applicative ((<|>))
@@ -82,7 +84,7 @@ data Game = Game {
   phase                 :: GamePhase,
   -- players includes dead players too.
   -- Use the getter alivePlayers instead of #players wherever possible.
-  players               :: Map PlayerId Player,
+  players               :: NEMap PlayerId Player,
   drawPile              :: [Policy],
   goodPolicies          :: Int,
   evilPolicies          :: Int,
@@ -158,7 +160,7 @@ registreVote gameOld votePhasePayload actor vote =
       passPresidencyRegularly (game ^. alivePlayers)
 
 alivePlayers :: Getter Game (Map PlayerId Player)
-alivePlayers = #players . to (Map.filter (view #alive))
+alivePlayers = #players . to (NEMap.filter (view #alive))
 
 passPresidencyRegularly ::
   Map PlayerId value -> PresidentTracker -> PresidentTracker
@@ -176,3 +178,11 @@ passPresidencyRegularly playerIds presidentTracker =
       set #president nextPresident $
       set #regularPresidentLatest nextPresident $
       presidentTracker
+
+type instance Index (NEMap key _value) = key
+type instance IxValue (NEMap _key value) = value
+instance Ord key => Ixed (NEMap key value) where
+  ix key f m =
+    case NEMap.lookup key m of
+      Just value  -> (\valueNew -> NEMap.insert key valueNew m) <$> f value
+      Nothing -> pure m

@@ -105,64 +105,66 @@ data UserInput =
   NominateChancellor PlayerId
 
 update :: Game -> ClientEvent -> (Game, Maybe GameEvent)
-update game@(Game {phase}) (UserInput actor userInput)
-  | VotePhase votePhasePayload <- phase, Vote vote <- userInput =
-      registreVote game votePhasePayload actor vote
+update game (UserInput actor userInput)
+  | Vote vote <- userInput =
+      registreVote game actor vote
   | otherwise = error "invalid input" -- to-do. exception handlin
 
-registreVote ::
-  Game -> VotePhasePayload -> PlayerId -> Vote -> (Game, Maybe GameEvent)
-registreVote gameOld votePhasePayload actor vote =
-  case resultOverall of
-    Nothing -> (game, Nothing)
-    Just Yes -> (succeedVote game, Just SucceedVote)
-    Just No -> (failVote game, Just FailVote)
-  where
-    resultOverall :: Maybe (Vote)
-    resultOverall =
-      fmap (bool No Yes) $
-      fmap (> Sum 0) $
-      fmap (foldMap voteToSum) $
-      resultsIndividual
-    resultsIndividual :: Maybe (Map PlayerId Vote)
-    resultsIndividual = traverse (view #vote) (game ^. alivePlayers)
-    game :: Game
-    game = set (#players . ix actor . #vote) (Just vote) gameOld
-    voteToSum :: Vote -> Sum Integer
-    voteToSum No = Sum (-1)
-    voteToSum Yes = Sum 1
-    succeedVote :: Game -> Game
-    succeedVote =
-      set
-        #phase
-        (
-          PresidentDiscardPolicyPhase $
-          PresidentDiscardPolicyPhasePayload {
-            chancellor = votePhasePayload ^. #chancellorCandidate
-          }
-        )
-      .
-      set #electionTracker 0
-    failVote :: Game -> Game
-    failVote =
-      set
-        #phase
-        (
-          NominateChancellorPhase $
-          NominateChancellorPhasePayload {
-            governmentPrevious = votePhasePayload ^. #governmentPrevious
-          }
-        )
-      .
-      over #presidentTracker updatePresidentTracker
-      .
-      over #electionTracker (+1)
-    updatePresidentTracker :: PresidentTracker -> PresidentTracker
-    updatePresidentTracker =
-      passPresidencyRegularly (game ^. alivePlayers)
+registreVote :: Game -> PlayerId -> Vote -> (Game, Maybe GameEvent)
+registreVote gameOld actor vote =
+  case phase gameOld of
+    VotePhase payload ->
+      let gameNew = set (#players . ix actor . #vote) (Just vote) gameOld in
+      case voteResult gameNew of
+        Nothing -> (gameNew, Nothing)
+        Just Yes -> (succeedVote gameNew, Just SucceedVote)
+        Just No -> (failVote gameNew, Just FailVote)
+      where
+        voteResult :: Game -> Maybe (Vote)
+        voteResult game =
+          fmap (bool No Yes) $
+          fmap (> Sum 0) $
+          fmap (foldMap voteToSum) $
+          playerVoteResults game
+        playerVoteResults :: Game -> Maybe (Map PlayerId Vote)
+        playerVoteResults game = traverse (view #vote) (game ^. alivePlayers)
+        voteToSum :: Vote -> Sum Integer
+        voteToSum No = Sum (-1)
+        voteToSum Yes = Sum 1
+        succeedVote :: Game -> Game
+        succeedVote =
+          set
+            #phase
+            (
+              PresidentDiscardPolicyPhase $
+              PresidentDiscardPolicyPhasePayload {
+                chancellor = payload ^. #chancellorCandidate
+              }
+            )
+          .
+          set #electionTracker 0
+        failVote :: Game -> Game
+        failVote =
+          set
+            #phase
+            (
+              NominateChancellorPhase $
+              NominateChancellorPhasePayload {
+                governmentPrevious = payload ^. #governmentPrevious
+              }
+            )
+          .
+          updatePresidentTracker
+          .
+          over #electionTracker (+1)
+    _ -> error "wrong game phase"
 
 alivePlayers :: Getter Game (Map PlayerId Player)
 alivePlayers = #players . to (NEMap.filter (view #alive))
+
+updatePresidentTracker :: Game -> Game
+updatePresidentTracker game =
+  over #presidentTracker (passPresidencyRegularly (game ^. alivePlayers)) game
 
 passPresidencyRegularly ::
   Map PlayerId value -> PresidentTracker -> PresidentTracker

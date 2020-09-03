@@ -127,7 +127,7 @@ registreVote gameOld votePhasePayload actor vote =
     resultsIndividual :: Maybe (Map PlayerId Vote)
     resultsIndividual = traverse (view #vote) (game ^. alivePlayers)
     game :: Game
-    game = set (#players . ix actor . #vote) (Just vote) gameOld -- to-do. Are we fine with neither checking if the actor has voted already nor its existence here?
+    game = set (#players . ix actor . #vote) (Just vote) gameOld
     voteToSum :: Vote -> Sum Integer
     voteToSum No = Sum (-1)
     voteToSum Yes = Sum 1

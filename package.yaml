@@ -28,6 +28,8 @@ ghc-options:
 - -Wno-implicit-prelude
 - -Wno-missing-export-lists
 - -Wno-missing-import-lists
+- -Wno-name-shadowing
+- -Wno-orphans
 - -Wno-unsafe
 
 default-extensions:

@@ -137,8 +137,9 @@ registreVote gameOld votePhasePayload actor vote =
         #phase
         (
           PresidentDiscardPolicyPhase $
-          PresidentDiscardPolicyPhasePayload $
-          votePhasePayload ^. #chancellorCandidate
+          PresidentDiscardPolicyPhasePayload {
+            chancellor = votePhasePayload ^. #chancellorCandidate
+          }
         )
       .
       set #electionTracker 0
@@ -148,8 +149,9 @@ registreVote gameOld votePhasePayload actor vote =
         #phase
         (
           NominateChancellorPhase $
-          NominateChancellorPhasePayload $
-          votePhasePayload ^. #governmentPrevious
+          NominateChancellorPhasePayload {
+            governmentPrevious = votePhasePayload ^. #governmentPrevious
+          }
         )
       .
       over #presidentTracker updatePresidentTracker

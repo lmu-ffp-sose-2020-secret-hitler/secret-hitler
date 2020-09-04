@@ -1,25 +1,23 @@
-body {
+board {
     display: grid;
-    margin: 8px;
-    grid-template-rows: 1fr;
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas: "phase_independent phase_dependent";
-    /* max-width: calc(100vw - 16px); */
-    /* max-height: calc(100vh - 16px); */
-}
-
-#phase_independent {
-    grid-area: phase_independent;
-    display: grid;
-    grid-template-rows: 1fr 1fr;
-    grid-template-columns: 1fr;
+    grid-template-rows: auto 50px auto;
+    grid-template-columns: repeat(3, auto);
+    grid-template-areas:
+        "board_fascist . phase_dependent"
+        ". . phase_dependent"
+        "board_liberal discard_pile phase_dependent";
+    transform: scale(.15);
+    transform-origin: top left;
+    font: 100px / 1.2 arial;
 }
 
 #phase_dependent {
     grid-area: phase_dependent;
+    border: 20px dashed blue;
+    color: blue;
 }
 
-img {
-    max-width: 100%;
-    max-height: 100%;
-}
+/* #board_fascist_7_8 { */
+/*     grid-area: phase_independent; */
+/*     display: grid; */
+/*     grid-template-rows:  */

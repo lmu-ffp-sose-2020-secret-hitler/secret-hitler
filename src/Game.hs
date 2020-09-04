@@ -187,6 +187,7 @@ data ClientEvent =
 data GameEvent =
   SucceedVote |
   FailVote
+  deriving stock (Show)
 
 data UserInput =
   NominateChancellor PlayerId |

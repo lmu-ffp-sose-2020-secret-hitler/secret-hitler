@@ -48,10 +48,11 @@ default-extensions:
 library:
   source-dirs: src
   dependencies:
-  - nonempty-containers
   - containers
-  - lens
   - generic-lens
+  - lens
+  - nonempty-containers
+  - random
 
 executables:
   secret-hitler-exe:

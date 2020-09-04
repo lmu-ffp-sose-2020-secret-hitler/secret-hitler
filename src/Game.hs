@@ -1,17 +1,18 @@
 module Game where
 
+import Control.Applicative ((<|>))
 import Control.Lens hiding (element)
+import Data.Bool (bool)
+import Data.Generics.Labels ()
+import Data.Map (Map)
+import Data.Map.NonEmpty (NEMap)
 import Data.Maybe
 import Data.Monoid
 import GHC.Generics (Generic)
-import Data.Generics.Labels ()
-import Data.Map.NonEmpty (NEMap)
-import qualified Data.Map.NonEmpty as NEMap
-import Data.Map (Map)
-import qualified Data.Map as Map
+import System.Random
 import qualified Data.List.NonEmpty as NonEmpty
-import Data.Bool (bool)
-import Control.Applicative ((<|>))
+import qualified Data.Map as Map
+import qualified Data.Map.NonEmpty as NEMap
 
 data Alignment =
   Good |
@@ -122,30 +123,63 @@ currentHandSize game = case phase game of
   ChancellorDiscardPolicyPhase {} -> 2
   _ -> 0
 
-newGame :: Int -> Game
-newGame playerCount = Game {
+newGame :: NEMap PlayerId Player -> [Policy] -> Game
+newGame players drawPile = Game {
   phase = NominateChancellorPhase $ NominateChancellorPhasePayload Nothing,
-  players = shufflePlayers playerCount,
-  cardPile = shuffleDrawPile 6 11,
+  players = players,
+  cardPile = drawPile,
   evilPolicies = 0,
   goodPolicies = 0,
   presidentTracker = newPresidentTracker,
   electionTracker = 0
 }
 
--- TODO Random order and playerCount
-shufflePlayers :: Int -> NEMap PlayerId Player
-shufflePlayers playerCount =
-  -- let roles = case playerCount of
-  --               5 -> EvilLeaderRole : EvilRole : replicate 3 GoodRole
-  --               6 -> EvilLeaderRole : EvilRole : replicate 4 GoodRole
-  -- in
-  --map newPlayer roles
-  NEMap.singleton (PlayerId 0) (newPlayer GoodRole)
+generateRandomGame :: Int -> IO Game
+generateRandomGame playerCount = do
+  rngPlayers <- newStdGen
+  rngDrawPile <- newStdGen
+  let players = generateRandomPlayers playerCount rngPlayers
+  let drawPile = generateRandomDrawPile 6 11 rngDrawPile
+  return $ newGame players drawPile
 
--- TODO Random order
-shuffleDrawPile :: Int -> Int -> [Policy]
-shuffleDrawPile g e = replicate g GoodPolicy ++ replicate e EvilPolicy
+generateRandomPlayers :: RandomGen rng => Int -> rng -> NEMap PlayerId Player
+generateRandomPlayers playerCount rngOld =
+  NEMap.mapKeysMonotonic PlayerId $ go playerCount rngOld
+  where
+    go playerCount rngOld =
+      let player = newPlayer $ currentRole playerCount in
+      if playerCount <= 1
+      then NEMap.singleton 0 player
+      else
+        let (id, rngNew) = randomR (0, playerCount-1) rngOld in
+        NEMap.insert id player $
+        NEMap.mapKeysMonotonic (\k -> if k < id then k else k+1) $
+        go (playerCount-1) rngNew
+      where
+        currentRole playerCount =
+          case playerCount of
+            1 -> EvilLeaderRole
+            2 -> GoodRole
+            3 -> GoodRole
+            4 -> GoodRole
+            5 -> EvilRole
+            6 -> GoodRole
+            7 -> EvilRole
+            8 -> GoodRole
+            9 -> EvilRole
+            10 -> GoodRole
+            _ -> error $ "Unsupported player count " ++ show playerCount
+
+generateRandomDrawPile :: RandomGen rng => Int -> Int -> rng -> [Policy]
+generateRandomDrawPile goodPolicyCount evilPolicyCount rngOld =
+  let policyCount = goodPolicyCount + evilPolicyCount in
+  if policyCount <= 0
+  then []
+  else
+    let (r, rngNew) = randomR (1, policyCount) rngOld in
+    if r <= goodPolicyCount
+    then GoodPolicy : generateRandomDrawPile (goodPolicyCount-1) evilPolicyCount rngNew
+    else EvilPolicy : generateRandomDrawPile goodPolicyCount (evilPolicyCount-1) rngNew
 
 data ClientEvent =
   UserInput PlayerId UserInput

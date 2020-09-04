@@ -6,11 +6,11 @@ import Data.Bool (bool)
 import Data.Generics.Labels ()
 import Data.Map (Map)
 import Data.Map.NonEmpty (NEMap)
-import Data.Maybe
-import Data.Monoid
+import Data.Maybe (fromMaybe)
+import Data.Monoid (Sum (Sum))
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import System.Random
+import System.Random (RandomGen, randomR, newStdGen)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import qualified Data.Map.NonEmpty as NEMap
@@ -97,7 +97,7 @@ newPresidentTracker = PresidentTracker {
 data Game = Game {
   phase :: GamePhase,
   -- players includes dead players too.
-  -- Use the getter alivePlayers instead of #players wherever possible.
+  -- Use getAlivePlayers instead of #players wherever possible.
   players :: NEMap PlayerId Player,
   -- The cardPile contains the drawPile and the currentHand
   cardPile :: [Policy],
@@ -108,28 +108,28 @@ data Game = Game {
 } deriving stock (Show, Generic)
 
 getPresident :: Game -> PlayerId
-getPresident game = (presidentTracker game) ^. #president
+getPresident = view (#presidentTracker . #president)
 
-alivePlayers :: Getter Game (Map PlayerId Player)
-alivePlayers = #players . to (NEMap.filter (view #alive))
+getAlivePlayers :: Game -> Map PlayerId Player
+getAlivePlayers = NEMap.filter (view #alive) . view #players
 
 drawPile :: Game -> [Policy]
-drawPile game = drop (currentHandSize game) (cardPile game)
+drawPile game@(Game {cardPile}) = drop (currentHandSize game) (cardPile)
 
 currentHand :: Game -> [Policy]
-currentHand game = take (currentHandSize game) (cardPile game)
+currentHand game@(Game {cardPile}) = take (currentHandSize game) (cardPile)
 
 currentHandSize :: Num p => Game -> p
-currentHandSize game = case phase game of
+currentHandSize (Game {phase}) = case phase of
   PresidentDiscardPolicyPhase {} -> 3
   ChancellorDiscardPolicyPhase {} -> 2
   _ -> 0
 
 newGame :: NEMap PlayerId Player -> [Policy] -> Game
-newGame players drawPile = Game {
+newGame players cardPile = Game {
   phase = NominateChancellorPhase $ NominateChancellorPhasePayload Nothing,
   players = players,
-  cardPile = drawPile,
+  cardPile = cardPile,
   evilPolicies = 0,
   goodPolicies = 0,
   presidentTracker = newPresidentTracker,
@@ -139,10 +139,10 @@ newGame players drawPile = Game {
 generateRandomGame :: Int -> IO Game
 generateRandomGame playerCount = do
   rngPlayers <- newStdGen
-  rngDrawPile <- newStdGen
+  rngCardPile <- newStdGen
   let players = generateRandomPlayers playerCount rngPlayers
-  let drawPile = generateRandomDrawPile 6 11 rngDrawPile
-  return $ newGame players drawPile
+  let cardPile = generateRandomCardPile 6 11 rngCardPile
+  pure $ newGame players cardPile
 
 generateRandomPlayers :: RandomGen rng => Int -> rng -> NEMap PlayerId Player
 generateRandomPlayers playerCount rngOld =
@@ -172,16 +172,16 @@ generateRandomPlayers playerCount rngOld =
             10 -> GoodRole
             _ -> error $ "Unsupported player count " ++ show playerCount
 
-generateRandomDrawPile :: RandomGen rng => Int -> Int -> rng -> [Policy]
-generateRandomDrawPile goodPolicyCount evilPolicyCount rngOld =
+generateRandomCardPile :: RandomGen rng => Int -> Int -> rng -> [Policy]
+generateRandomCardPile goodPolicyCount evilPolicyCount rngOld =
   let policyCount = goodPolicyCount + evilPolicyCount in
   if policyCount <= 0
   then []
   else
     let (r, rngNew) = randomR (1, policyCount) rngOld in
     if r <= goodPolicyCount
-    then GoodPolicy : generateRandomDrawPile (goodPolicyCount-1) evilPolicyCount rngNew
-    else EvilPolicy : generateRandomDrawPile goodPolicyCount (evilPolicyCount-1) rngNew
+    then GoodPolicy : generateRandomCardPile (goodPolicyCount-1) evilPolicyCount rngNew
+    else EvilPolicy : generateRandomCardPile goodPolicyCount (evilPolicyCount-1) rngNew
 
 data ClientEvent =
   UserInput PlayerId UserInput
@@ -202,17 +202,17 @@ data UserInput =
 
 updateChecked :: ClientEvent -> Game -> (Game, Maybe GameEvent)
 updateChecked event@(UserInput actorId _) game =
-  case isPlayerAllowedToAct actorId game of
-    True -> update event game
-    False -> (game, Just $ Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
+  if isPlayerAllowedToAct actorId game
+  then update event game
+  else (game, Just $ Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
   where
   isPlayerAllowedToAct :: PlayerId -> Game -> Bool
-  isPlayerAllowedToAct playerId game =
-    case phase game of
-      NominateChancellorPhase _ -> playerId == getPresident game
-      VotePhase _ -> True
-      PresidentDiscardPolicyPhase _ -> playerId == getPresident game
-      ChancellorDiscardPolicyPhase ChancellorDiscardPolicyPhasePayload { chancellor } -> playerId == chancellor
+  isPlayerAllowedToAct playerId game@(Game {phase}) =
+    case phase of
+      NominateChancellorPhase {} -> playerId == getPresident game
+      VotePhase {} -> True
+      PresidentDiscardPolicyPhase {} -> playerId == getPresident game
+      ChancellorDiscardPolicyPhase (ChancellorDiscardPolicyPhasePayload { chancellor }) -> playerId == chancellor
 
 update :: ClientEvent -> Game -> (Game, Maybe GameEvent)
 update (UserInput actorId userInput) =
@@ -226,21 +226,21 @@ withGameEvent :: Maybe GameEvent -> Game -> (Game, Maybe GameEvent)
 withGameEvent = flip (,)
 
 nominateChancellor :: PlayerId -> Game -> (Game, Maybe GameEvent)
-nominateChancellor playerId gameOld =
-  case phase gameOld of
+nominateChancellor playerId gameOld@(Game {phase}) =
+  case phase of
     NominateChancellorPhase payload ->
       withGameEvent Nothing $
-      set (#players . traversed . #vote) Nothing gameOld {
-        phase = VotePhase VotePhasePayload {
+      set (#players . traversed . #vote) Nothing (gameOld {
+        phase = VotePhase $ VotePhasePayload {
           chancellorCandidate = playerId,
           governmentPrevious = payload ^. #governmentPrevious
         }
-      }
+      })
     _ -> (gameOld, Just $ Error $ "Cannot nominate a chancellor outside of NominateChancellorPhase")
 
 castVote :: PlayerId -> Vote -> Game -> (Game, Maybe GameEvent)
-castVote actorId vote gameOld =
-  case phase gameOld of
+castVote actorId vote gameOld@(Game {phase})=
+  case phase of
     VotePhase payload ->
       let gameNew = set (#players . ix actorId . #vote) (Just vote) gameOld in
       case voteResult gameNew of
@@ -255,7 +255,7 @@ castVote actorId vote gameOld =
           fmap (foldMap voteToSum) $
           playerVoteResults game
         playerVoteResults :: Game -> Maybe (Map PlayerId Vote)
-        playerVoteResults game = traverse (view #vote) (game ^. alivePlayers)
+        playerVoteResults game = traverse (view #vote) (getAlivePlayers game)
         voteToSum :: Vote -> Sum Integer
         voteToSum No = Sum (-1)
         voteToSum Yes = Sum 1
@@ -280,24 +280,24 @@ castVote actorId vote gameOld =
               }
             )
           .
-          nominateNextPresident
+          nominateNextRegularPresident
           .
           advanceElectionTracker
     _ -> (gameOld, Just $ Error $ "Cannot vote outside of VotePhase")
 
 advanceElectionTracker :: Game -> Game
-advanceElectionTracker game =
-  if electionTracker game < 2
+advanceElectionTracker game@(Game {electionTracker}) =
+  if electionTracker < 2
   then over #electionTracker (+1) game
-  else enactTopPolicy game { electionTracker = 0 }
+  else enactTopPolicy (game { electionTracker = 0 })
 
-nominateNextPresident :: Game -> Game
-nominateNextPresident game =
-  over #presidentTracker (passPresidencyRegularly (game ^. alivePlayers)) game
+nominateNextRegularPresident :: Game -> Game
+nominateNextRegularPresident game =
+  over #presidentTracker (nextRegularPresident (getAlivePlayers game)) game
 
-passPresidencyRegularly ::
+nextRegularPresident ::
   Map PlayerId value -> PresidentTracker -> PresidentTracker
-passPresidencyRegularly playerIds presidentTracker =
+nextRegularPresident playerIds presidentTracker =
   passPresidencyTo $
   fromMaybe (error "all players dying should not be possible") $
   (
@@ -316,18 +316,18 @@ discardPolicy :: Int -> Game -> (Game, Maybe GameEvent)
 discardPolicy policyIndex gameOld =
   case removePolicy policyIndex gameOld of
     Left error -> (gameOld, Just $ Error $ error)
-    Right gameNew ->
-      case phase gameNew of
-        PresidentDiscardPolicyPhase PresidentDiscardPolicyPhasePayload { chancellor } ->
+    Right gameNew@(Game {phase}) ->
+      case phase of
+        PresidentDiscardPolicyPhase (PresidentDiscardPolicyPhasePayload { chancellor }) ->
           withGameEvent Nothing $
           gameNew {
             phase = ChancellorDiscardPolicyPhase $ ChancellorDiscardPolicyPhasePayload {
               chancellor = chancellor
             }
           }
-        ChancellorDiscardPolicyPhase _ ->
+        ChancellorDiscardPolicyPhase {} ->
           withGameEvent Nothing $
-          nominateNextPresident $
+          nominateNextRegularPresident $
           enactTopPolicy $
           gameNew
         _ -> (gameOld, Just $ Error $ "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
@@ -336,13 +336,13 @@ discardPolicy policyIndex gameOld =
     removePolicy policyIndex game =
       if 0 <= policyIndex && policyIndex < currentHandSize game
       then Right $ over #cardPile (removeElement policyIndex) game
-      else Left $ "Cannot discard policy outside of current hand"
+      else Left "Cannot discard policy outside of current hand"
     removeElement :: Int -> [a] -> [a]
     removeElement i list = take i list ++ drop (i + 1) list
 
 enactTopPolicy :: Game -> Game
-enactTopPolicy gameOld =
-  case cardPile gameOld of
+enactTopPolicy gameOld@(Game {cardPile}) =
+  case cardPile of
     (policy:cardPileTail) ->
       let gameNew = gameOld { cardPile = cardPileTail } in
       case policy of

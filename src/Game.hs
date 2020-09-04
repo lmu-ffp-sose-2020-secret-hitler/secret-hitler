@@ -8,11 +8,13 @@ import Data.Map (Map)
 import Data.Map.NonEmpty (NEMap)
 import Data.Maybe
 import Data.Monoid
+import Data.Text (Text)
 import GHC.Generics (Generic)
 import System.Random
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as Map
 import qualified Data.Map.NonEmpty as NEMap
+import qualified Data.Text as Text
 
 data Alignment =
   Good |
@@ -28,11 +30,11 @@ data Role =
 data Vote =
   No |
   Yes
-  deriving stock (Show)
+  deriving stock (Show, Read)
 
 newtype PlayerId =
   PlayerId Int
-  deriving newtype (Show, Eq, Ord)
+  deriving newtype (Show, Eq, Ord, Read)
 
 data Player = Player {
   role  :: Role,
@@ -183,8 +185,10 @@ generateRandomDrawPile goodPolicyCount evilPolicyCount rngOld =
 
 data ClientEvent =
   UserInput PlayerId UserInput
+  deriving stock (Show, Read)
 
 data GameEvent =
+  Error Text |
   SucceedVote |
   FailVote
   deriving stock (Show)
@@ -194,12 +198,13 @@ data UserInput =
   Vote Vote |
   DiscardPresidentPolicy Int |
   DiscardChancellorPolicy Int
+  deriving stock (Show, Read)
 
 updateChecked :: ClientEvent -> Game -> (Game, Maybe GameEvent)
 updateChecked event@(UserInput actorId _) game =
   case isPlayerAllowedToAct actorId game of
     True -> update event game
-    False -> error $ "Player " ++ show actorId ++ " is currently not allowed to act"
+    False -> (game, Just $ Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
   where
   isPlayerAllowedToAct :: PlayerId -> Game -> Bool
   isPlayerAllowedToAct playerId game =
@@ -231,7 +236,7 @@ nominateChancellor playerId gameOld =
           governmentPrevious = payload ^. #governmentPrevious
         }
       }
-    _ -> error "Cannot nominate a chancellor outside of NominateChancellorPhase"
+    _ -> (gameOld, Just $ Error $ "Cannot nominate a chancellor outside of NominateChancellorPhase")
 
 castVote :: PlayerId -> Vote -> Game -> (Game, Maybe GameEvent)
 castVote actorId vote gameOld =
@@ -278,7 +283,7 @@ castVote actorId vote gameOld =
           nominateNextPresident
           .
           advanceElectionTracker
-    _ -> error "Cannot vote outside of VotePhase"
+    _ -> (gameOld, Just $ Error $ "Cannot vote outside of VotePhase")
 
 advanceElectionTracker :: Game -> Game
 advanceElectionTracker game =
@@ -309,25 +314,29 @@ passPresidencyRegularly playerIds presidentTracker =
 
 discardPolicy :: Int -> Game -> (Game, Maybe GameEvent)
 discardPolicy policyIndex gameOld =
-  let gameNew = removePolicy policyIndex gameOld in
-  withGameEvent Nothing $
-  case phase gameNew of
-    PresidentDiscardPolicyPhase PresidentDiscardPolicyPhasePayload { chancellor } ->
-      gameNew {
-        phase = ChancellorDiscardPolicyPhase $ ChancellorDiscardPolicyPhasePayload {
-          chancellor = chancellor
-        }
-      }
-    ChancellorDiscardPolicyPhase _ ->
-      nominateNextPresident $
-      enactTopPolicy $
-      gameNew
-    _ -> error "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase"
+  case removePolicy policyIndex gameOld of
+    Left error -> (gameOld, Just $ Error $ error)
+    Right gameNew ->
+      case phase gameNew of
+        PresidentDiscardPolicyPhase PresidentDiscardPolicyPhasePayload { chancellor } ->
+          withGameEvent Nothing $
+          gameNew {
+            phase = ChancellorDiscardPolicyPhase $ ChancellorDiscardPolicyPhasePayload {
+              chancellor = chancellor
+            }
+          }
+        ChancellorDiscardPolicyPhase _ ->
+          withGameEvent Nothing $
+          nominateNextPresident $
+          enactTopPolicy $
+          gameNew
+        _ -> (gameOld, Just $ Error $ "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
   where
+    removePolicy :: Int -> Game -> Either Text Game
     removePolicy policyIndex game =
       if 0 <= policyIndex && policyIndex < currentHandSize game
-      then over #cardPile (removeElement policyIndex) game
-      else error "Cannot discard policy outside of current hand"
+      then Right $ over #cardPile (removeElement policyIndex) game
+      else Left $ "Cannot discard policy outside of current hand"
     removeElement :: Int -> [a] -> [a]
     removeElement i list = take i list ++ drop (i + 1) list
 

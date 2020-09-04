@@ -53,6 +53,7 @@ library:
   - lens
   - nonempty-containers
   - random
+  - text
 
 executables:
   secret-hitler-exe:

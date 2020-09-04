@@ -1,0 +1,25 @@
+body {
+    display: grid;
+    margin: 8px;
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "phase_independent phase_dependent";
+    /* max-width: calc(100vw - 16px); */
+    /* max-height: calc(100vh - 16px); */
+}
+
+#phase_independent {
+    grid-area: phase_independent;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    grid-template-columns: 1fr;
+}
+
+#phase_dependent {
+    grid-area: phase_dependent;
+}
+
+img {
+    max-width: 100%;
+    max-height: 100%;
+}

@@ -268,8 +268,6 @@ castVote actorId vote gameOld@(Game {phase})=
                 chancellor = payload ^. #chancellorCandidate
               }
             )
-          .
-          set #electionTracker 0
         failVote :: Game -> Game
         failVote =
           set #phase
@@ -289,7 +287,7 @@ advanceElectionTracker :: Game -> Game
 advanceElectionTracker game@(Game {electionTracker}) =
   if electionTracker < 2
   then over #electionTracker (+1) game
-  else enactTopPolicy (game { electionTracker = 0 })
+  else enactTopPolicy game
 
 nominateNextRegularPresident :: Game -> Game
 nominateNextRegularPresident game =
@@ -344,7 +342,7 @@ enactTopPolicy :: Game -> Game
 enactTopPolicy gameOld@(Game {cardPile}) =
   case cardPile of
     (policy:cardPileTail) ->
-      let gameNew = gameOld { cardPile = cardPileTail } in
+      let gameNew = gameOld { electionTracker = 0, cardPile = cardPileTail } in
       case policy of
         GoodPolicy -> over #goodPolicies (+1) gameNew
         EvilPolicy -> over #evilPolicies (+1) gameNew

@@ -18,7 +18,8 @@ library
     text,
     random,
     generic-lens,
-    nonempty-containers
+    nonempty-containers,
+    vector-shuffling
   exposed-modules:
     Backend,
     Game

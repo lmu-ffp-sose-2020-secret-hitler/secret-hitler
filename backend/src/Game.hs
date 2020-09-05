@@ -4,17 +4,17 @@ import Control.Applicative ((<|>))
 import Control.Lens hiding (element)
 import Data.Bool (bool)
 import Data.Generics.Labels ()
-import qualified Data.List.NonEmpty as NonEmpty
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Map.NonEmpty (NEMap)
-import qualified Data.Map.NonEmpty as NEMap
+import Data.IntMap.Lazy (IntMap)
+import qualified Data.IntMap.Lazy as IntMap
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Sum (Sum))
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Vector (Vector, generate)
+import qualified Data.Vector as Vector
+import VectorShuffling.Immutable (shuffle)
 import GHC.Generics (Generic)
-import System.Random (RandomGen, randomR, newStdGen)
+import System.Random (RandomGen, StdGen, randomR, newStdGen)
 
 data Alignment =
   Good |
@@ -31,10 +31,6 @@ data Vote =
   No |
   Yes
   deriving stock (Show, Read)
-
-newtype PlayerId =
-  PlayerId Int
-  deriving newtype (Show, Eq, Ord, Read)
 
 data Player = Player {
   role  :: Role,
@@ -55,8 +51,8 @@ data Policy =
   deriving stock (Show)
 
 data Government = Government {
-  president :: PlayerId,
-  chancellor :: PlayerId
+  president :: Int,
+  chancellor :: Int
 } deriving stock (Show)
 
 data NominateChancellorPhasePayload = NominateChancellorPhasePayload {
@@ -65,15 +61,15 @@ data NominateChancellorPhasePayload = NominateChancellorPhasePayload {
 
 data VotePhasePayload = VotePhasePayload {
   governmentPrevious :: Maybe Government,
-  chancellorCandidate :: PlayerId
+  chancellorCandidate :: Int
 } deriving stock (Show, Generic)
 
 data PresidentDiscardPolicyPhasePayload = PresidentDiscardPolicyPhasePayload {
-  chancellor :: PlayerId
+  chancellor :: Int
 } deriving stock (Show, Generic)
 
 data ChancellorDiscardPolicyPhasePayload = ChancellorDiscardPolicyPhasePayload {
-  chancellor :: PlayerId
+  chancellor :: Int
 } deriving stock (Show, Generic)
 
 data GamePhase =
@@ -84,21 +80,21 @@ data GamePhase =
   deriving stock (Show)
 
 data PresidentTracker = PresidentTracker {
-    president :: PlayerId,
-    regularPresidentLatest :: PlayerId
+    president :: Int,
+    regularPresidentLatest :: Int
 } deriving stock (Show, Generic)
 
 newPresidentTracker :: PresidentTracker
 newPresidentTracker = PresidentTracker {
-    president = PlayerId 0,
-    regularPresidentLatest = PlayerId 0
+    president = 0,
+    regularPresidentLatest = 0
   }
 
 data Game = Game {
   phase :: GamePhase,
   -- players includes dead players too.
   -- Use getAlivePlayers instead of #players wherever possible.
-  players :: NEMap PlayerId Player,
+  players :: Vector Player,
   -- The cardPile contains the drawPile and the currentHand
   cardPile :: [Policy],
   goodPolicies :: Int,
@@ -107,11 +103,17 @@ data Game = Game {
   electionTracker :: Int
 } deriving stock (Show, Generic)
 
-getPresident :: Game -> PlayerId
+getPresident :: Game -> Int
 getPresident = view (#presidentTracker . #president)
 
-getAlivePlayers :: Game -> Map PlayerId Player
-getAlivePlayers = NEMap.filter (view #alive) . view #players
+getAlivePlayers :: Game -> IntMap Player
+getAlivePlayers game =
+  IntMap.fromDistinctAscList $
+  Vector.toList $
+  Vector.filter (view #alive . snd) $
+  Vector.indexed $
+  view #players $
+  game
 
 drawPile :: Game -> [Policy]
 drawPile game@(Game { cardPile }) = drop (currentHandSize game) (cardPile)
@@ -125,7 +127,7 @@ currentHandSize (Game { phase }) = case phase of
   ChancellorDiscardPolicyPhase {} -> 2
   _ -> 0
 
-newGame :: NEMap PlayerId Player -> [Policy] -> Game
+newGame :: Vector Player -> [Policy] -> Game
 newGame players drawPile = Game {
   phase = NominateChancellorPhase $ NominateChancellorPhasePayload Nothing,
   players,
@@ -144,47 +146,37 @@ generateRandomGame playerCount = do
   let drawPile = generateRandomCardPile 6 11 rngDrawPile
   pure $ newGame players drawPile
 
-generateRandomPlayers :: RandomGen rng => Int -> rng -> NEMap PlayerId Player
-generateRandomPlayers playerCount rngOld =
-  NEMap.mapKeysMonotonic PlayerId $ go playerCount rngOld
+generateRandomPlayers :: Int -> StdGen -> Vector Player
+generateRandomPlayers playerCount rng =
+  fst $ shuffle (generate playerCount currentPlayer) rng
   where
-    go playerCount rngOld =
-      let player = newPlayer $ currentRole playerCount in
-      if playerCount <= 1
-      then NEMap.singleton 0 player
-      else
-        let (id, rngNew) = randomR (0, playerCount-1) rngOld in
-        NEMap.insert id player $
-        NEMap.mapKeysMonotonic (\k -> if k < id then k else k+1) $
-        go (playerCount-1) rngNew
-      where
-        currentRole playerCount =
-          case playerCount of
-            1 -> EvilLeaderRole
-            2 -> GoodRole
-            3 -> GoodRole
-            4 -> GoodRole
-            5 -> EvilRole
-            6 -> GoodRole
-            7 -> EvilRole
-            8 -> GoodRole
-            9 -> EvilRole
-            10 -> GoodRole
-            _ -> error $ "Unsupported player count " ++ show playerCount
+    currentPlayer :: Int -> Player
+    currentPlayer = newPlayer . currentRole
+    currentRole playerCount = case playerCount of
+      1 -> EvilLeaderRole
+      2 -> GoodRole
+      3 -> GoodRole
+      4 -> GoodRole
+      5 -> EvilRole
+      6 -> GoodRole
+      7 -> EvilRole
+      8 -> GoodRole
+      9 -> EvilRole
+      10 -> GoodRole
+      _ -> error $ "Unsupported player count " ++ show playerCount
 
-generateRandomCardPile :: RandomGen rng => Int -> Int -> rng -> [Policy]
-generateRandomCardPile goodPolicyCount evilPolicyCount rngOld =
-  let policyCount = goodPolicyCount + evilPolicyCount in
-  if policyCount <= 0
-  then []
-  else
-    let (r, rngNew) = randomR (1, policyCount) rngOld in
-    if r <= goodPolicyCount
-    then GoodPolicy : generateRandomCardPile (goodPolicyCount-1) evilPolicyCount rngNew
-    else EvilPolicy : generateRandomCardPile goodPolicyCount (evilPolicyCount-1) rngNew
+generateRandomCardPile :: Int -> Int -> StdGen -> [Policy]
+generateRandomCardPile goodPolicyCount evilPolicyCount rng =
+  let
+    goodPolicies = Vector.replicate goodPolicyCount GoodPolicy
+    evilPolicies = Vector.replicate evilPolicyCount EvilPolicy
+  in
+  Vector.toList $
+  fst $
+  shuffle (goodPolicies Vector.++ evilPolicies) rng
 
 data ClientEvent =
-  UserInput PlayerId UserInput
+  UserInput Int UserInput
   deriving stock (Show, Read)
 
 data GameEvent =
@@ -194,7 +186,7 @@ data GameEvent =
   deriving stock (Show)
 
 data UserInput =
-  NominateChancellor PlayerId |
+  NominateChancellor Int |
   Vote Vote |
   DiscardPresidentPolicy Int |
   DiscardChancellorPolicy Int
@@ -205,7 +197,7 @@ updateChecked event@(UserInput actorId _) game
   | isPlayerAllowedToAct actorId game = update event game
   | otherwise = (game, Just $ Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
   where
-  isPlayerAllowedToAct :: PlayerId -> Game -> Bool
+  isPlayerAllowedToAct :: Int -> Game -> Bool
   isPlayerAllowedToAct actorId game@(Game { phase }) =
     case phase of
       NominateChancellorPhase {} -> actorId == getPresident game
@@ -224,7 +216,7 @@ update (UserInput actorId userInput) =
 withGameEvent :: Maybe GameEvent -> Game -> (Game, Maybe GameEvent)
 withGameEvent = flip (,)
 
-nominateChancellor :: PlayerId -> Game -> (Game, Maybe GameEvent)
+nominateChancellor :: Int -> Game -> (Game, Maybe GameEvent)
 nominateChancellor playerId gameOld@(Game {
   phase = NominateChancellorPhase NominateChancellorPhasePayload { governmentPrevious }
 }) =
@@ -238,7 +230,7 @@ nominateChancellor playerId gameOld@(Game {
 nominateChancellor _playerId gameOld =
   (gameOld, Just $ Error $ "Cannot nominate a chancellor outside of NominateChancellorPhase")
 
-castVote :: PlayerId -> Vote -> Game -> (Game, Maybe GameEvent)
+castVote :: Int -> Vote -> Game -> (Game, Maybe GameEvent)
 castVote actorId vote gameOld@(Game {
   phase = VotePhase VotePhasePayload {
     governmentPrevious,
@@ -257,7 +249,7 @@ castVote actorId vote gameOld@(Game {
       fmap (> Sum 0) $
       fmap (foldMap voteToSum) $
       playerVoteResults game
-    playerVoteResults :: Game -> Maybe (Map PlayerId Vote)
+    playerVoteResults :: Game -> Maybe (IntMap Vote)
     playerVoteResults game = traverse (view #vote) (getAlivePlayers game)
     voteToSum :: Vote -> Sum Integer
     voteToSum No = Sum (-1)
@@ -289,18 +281,14 @@ nominateNextRegularPresident :: Game -> Game
 nominateNextRegularPresident game =
   over #presidentTracker (nextRegularPresident (getAlivePlayers game)) game
 
-nextRegularPresident ::
-  Map PlayerId value -> PresidentTracker -> PresidentTracker
-nextRegularPresident playerIds presidentTracker =
+nextRegularPresident :: IntMap value -> PresidentTracker -> PresidentTracker
+nextRegularPresident players presidentTracker =
+  let presidentialCandidate = presidentTracker ^. #regularPresidentLatest in
   passPresidencyTo $
   fromMaybe (error "all players dying should not be possible") $
-  (
-    fst <$> (Map.lookupGT (presidentTracker ^. #regularPresidentLatest) playerIds)
-    <|>
-    (fmap NonEmpty.head $ NonEmpty.nonEmpty $ Map.keys $ playerIds)
-  )
+  fst <$> (IntMap.lookupGT (presidentialCandidate) players <|> IntMap.lookupMin players)
   where
-    passPresidencyTo :: PlayerId -> PresidentTracker
+    passPresidencyTo :: Int -> PresidentTracker
     passPresidencyTo nextPresident =
       set #president nextPresident $
       set #regularPresidentLatest nextPresident $
@@ -347,11 +335,3 @@ enactTopPolicy gameOld@(Game { cardPile = policy : cardPileTail }) =
         EvilPolicy -> #evilPolicies
 enactTopPolicy _gameOld =
   error "Cannot enact top policy from empty card pile"
-
-type instance Index (NEMap key _value) = key
-type instance IxValue (NEMap _key value) = value
-instance Ord key => Ixed (NEMap key value) where
-  ix key f m =
-    case NEMap.lookup key m of
-      Just value  -> (\valueNew -> NEMap.insert key valueNew m) <$> f value
-      Nothing -> pure m

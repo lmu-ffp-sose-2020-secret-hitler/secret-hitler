@@ -9,6 +9,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Common.Route where
 
 {- -- You will probably want these imports for composing Encoders.
@@ -17,10 +18,21 @@ import Control.Category
 -}
 
 import Data.Text (Text)
-import Data.Functor.Identity
+import Data.Functor.Identity (Identity)
 
 import Obelisk.Route
-import Obelisk.Route.TH
+  (
+    Encoder,
+    R,
+    FullRoute,
+    PageName,
+    mkFullRouteEncoder,
+    FullRoute (FullRoute_Backend),
+    SegmentResult (PathSegment, PathEnd),
+    unitEncoder,
+    pattern (:/)
+  )
+import Obelisk.Route.TH (deriveRouteComponent)
 
 data BackendRoute :: * -> * where
   -- | Used to handle unparseable routes.

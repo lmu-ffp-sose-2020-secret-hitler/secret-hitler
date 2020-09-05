@@ -15,6 +15,6 @@ run gameOld = do
   let event = read line :: ClientEvent
   --event <- readLn :: IO ClientEvent
   let (gameNew, gameEvent) = updateChecked event gameOld
-  print gameNew
   print gameEvent
+  print gameNew
   run $ gameNew

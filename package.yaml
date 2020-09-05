@@ -33,6 +33,7 @@ ghc-options:
 - -Wno-unsafe
 
 default-extensions:
+- TupleSections
 - DeriveGeneric
 - GeneralizedNewtypeDeriving
 - DerivingStrategies

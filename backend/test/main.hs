@@ -9,9 +9,7 @@ main = do
 
 run :: Game -> IO ()
 run gameOld = do
-  line <- getLine
-  let event = read line :: ClientEvent
-  --event <- readLn :: IO ClientEvent
+  event <- readLn :: IO ClientEvent
   let (gameNew, gameEvent) = updateChecked event gameOld
   print gameNew
   print gameEvent

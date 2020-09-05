@@ -1,0 +1,65 @@
+name: backend
+version: 0.1
+cabal-version: >= 1.8
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  if impl(ghcjs)
+    buildable: False
+  build-depends:
+    base,
+    common,
+    frontend,
+    obelisk-backend,
+    obelisk-route,
+    lens,
+    containers,
+    text,
+    random,
+    generic-lens,
+    nonempty-containers
+  exposed-modules:
+    Backend,
+    Game
+  ghc-options:
+    -Weverything
+    -Wno-implicit-prelude
+    -Wno-missing-export-lists
+    -Wno-missing-import-lists
+    -Wno-name-shadowing
+    -Wno-orphans
+    -Wno-unsafe
+    -Wno-missing-local-signatures
+  default-extensions:
+    OverloadedLabels,
+    DuplicateRecordFields,
+    DerivingStrategies,
+    NamedFieldPuns,
+    TypeFamilies,
+    GeneralizedNewtypeDeriving,
+    DeriveGeneric,
+    OverloadedStrings
+
+executable backend
+  main-is: main.hs
+  hs-source-dirs: src-bin
+  if impl(ghcjs)
+    buildable: False
+  build-depends:
+    base,
+    backend,
+    common,
+    frontend,
+    obelisk-backend
+
+executable test
+  main-is: main.hs
+  hs-source-dirs: test
+  if impl(ghcjs)
+    buildable: False
+  build-depends:
+    base,
+    backend,
+    common
+

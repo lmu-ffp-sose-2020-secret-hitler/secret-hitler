@@ -4,17 +4,17 @@ import Control.Applicative ((<|>))
 import Control.Lens hiding (element)
 import Data.Bool (bool)
 import Data.Generics.Labels ()
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Map.NonEmpty (NEMap)
+import qualified Data.Map.NonEmpty as NEMap
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Sum (Sum))
 import Data.Text (Text)
+import qualified Data.Text as Text
 import GHC.Generics (Generic)
 import System.Random (RandomGen, randomR, newStdGen)
-import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.Map as Map
-import qualified Data.Map.NonEmpty as NEMap
-import qualified Data.Text as Text
 
 data Alignment =
   Good |

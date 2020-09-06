@@ -1,23 +1,24 @@
-board {
+#board {
     display: grid;
-    grid-template-rows: auto 50px auto;
-    grid-template-columns: repeat(3, auto);
+    max-width: 100%;
+    grid-template-rows: repeat(2, auto);
+    grid-template-columns: 3972fr 684fr auto;
     grid-template-areas:
         "board_fascist . phase_dependent"
-        ". . phase_dependent"
         "board_liberal discard_pile phase_dependent";
-    transform: scale(.15);
-    transform-origin: top left;
-    font: 100px / 1.2 arial;
+    justify-items: center;
+    align-items: center;
+    grid-gap: 8px;
 }
 
 #phase_dependent {
     grid-area: phase_dependent;
-    border: 20px dashed blue;
+    border: 2px dashed blue;
     color: blue;
+    justify-self: stretch;
+    align-self: stretch;
 }
 
-/* #board_fascist_7_8 { */
-/*     grid-area: phase_independent; */
-/*     display: grid; */
-/*     grid-template-rows:  */
+img {
+    max-width: 100%;
+}

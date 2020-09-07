@@ -19,7 +19,8 @@ library
     random,
     generic-lens,
     nonempty-containers,
-    vector-shuffling
+    vector-shuffling,
+    websockets-snap
   exposed-modules:
     Backend,
     Game
@@ -40,7 +41,8 @@ library
     TypeFamilies,
     GeneralizedNewtypeDeriving,
     DeriveGeneric,
-    OverloadedStrings
+    OverloadedStrings,
+    LambdaCase
 
 executable backend
   main-is: main.hs

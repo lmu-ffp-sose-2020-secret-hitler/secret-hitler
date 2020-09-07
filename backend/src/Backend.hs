@@ -14,7 +14,7 @@ backend = Backend
   {
     _backend_run =
       \serve -> do
-        lobby <- newMVar (Lobby.Lobby [])
+        lobby <- newMVar (Lobby.newLobby)
         serve $ \case
           BackendRoute_Missing :=> Identity () -> return ()
           BackendRoute_Main :=> Identity () -> do

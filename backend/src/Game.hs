@@ -12,9 +12,9 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Vector (Vector, generate)
 import qualified Data.Vector as Vector
-import VectorShuffling.Immutable (shuffle)
 import GHC.Generics (Generic)
-import System.Random (RandomGen, StdGen, randomR, newStdGen)
+import System.Random (StdGen, newStdGen)
+import VectorShuffling.Immutable (shuffle)
 
 data Alignment =
   Good |

@@ -5,22 +5,18 @@
 module Frontend where
 
 import Data.List.NonEmpty
-import Control.Monad (void)
+-- import Control.Monad (void)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T.E
-import Language.Javascript.JSaddle (eval, liftJSM)
-
 import qualified Data.ByteString as B
+import Text.URI
+
 import Obelisk.Frontend
 import Obelisk.Configs
 import Obelisk.Route
 import Obelisk.Generated.Static
-
 import Reflex.Dom.Core hiding (button)
-
-import Common.Api
 import Common.Route
-import Text.URI
 
 -- This runs in a monad that can be run on the client or the server.
 -- To run code in a pure client or pure server context, use one of the
@@ -52,7 +48,7 @@ frontend =
           --     Just s -> text $ T.E.decodeUtf8 s
           r <- (fmap . fmap) T.E.decodeUtf8 (getConfig "common/route")
           _ <- wsRespEv r
-          return ()
+          pure ()
     }
 
 wsRespEv ::
@@ -62,26 +58,29 @@ wsRespEv ::
     Prerender js t m
   ) => Maybe T.Text -> m (Dynamic t (Event t B.ByteString))
 wsRespEv r =
-   prerender (return never) $ do
-    case checkEncoder fullRouteEncoder of
+  prerender
+    (pure never)
+    (case checkEncoder fullRouteEncoder of
       Left err -> do
         el "div" $ text err
-        return never
-      Right encoder -> do
-        let wsPath = fst $ encode encoder $ (FullRoute_Backend BackendRoute_Main) :/ ()
-        let mUri = do
-              uri' <- mkURI =<< r
-              pathPiece <- nonEmpty =<< mapM mkPathPiece wsPath
-              wsScheme <- case uriScheme uri' of
-                rtextScheme | rtextScheme == mkScheme "https" -> mkScheme "wss"
-                rtextScheme | rtextScheme == mkScheme "http" -> mkScheme "ws"
-                _ -> Nothing
-              return $ uri'
-                { uriPath = Just (False, pathPiece)
-                , uriScheme = Just wsScheme
-                }
-        case mUri of
-          Nothing -> return never
-          Just uri -> do
-            ws <- webSocket (render uri) $ def & webSocketConfig_send .~ (never :: Reflex t => Event t [B.ByteString])
-            return (_webSocket_recv ws)
+        pure never
+      Right encoder ->
+        let
+          wsPath = fst $ encode encoder $ (FullRoute_Backend BackendRoute_Main) :/ ()
+          mUri = do
+            uri' <- mkURI =<< r
+            pathPiece <- nonEmpty =<< mapM mkPathPiece wsPath
+            wsScheme <- case uriScheme uri' of
+              rtextScheme | rtextScheme == mkScheme "https" -> mkScheme "wss"
+              rtextScheme | rtextScheme == mkScheme "http" -> mkScheme "ws"
+              _ -> Nothing
+            pure $
+              uri' {uriPath = Just (False, pathPiece), uriScheme = Just wsScheme}
+          in
+            case mUri of
+              Nothing -> pure never
+              Just uri ->
+                fmap _webSocket_recv $
+                webSocket (render uri)
+                  (def & webSocketConfig_send .~ (never :: Reflex t => Event t [B.ByteString]))
+    )

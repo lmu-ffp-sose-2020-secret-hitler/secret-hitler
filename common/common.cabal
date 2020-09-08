@@ -13,3 +13,13 @@ library
     Common.Api
     Common.Route
   ghc-options: -Wall
+  default-extensions:
+    OverloadedLabels,
+    DuplicateRecordFields,
+    DerivingStrategies,
+    NamedFieldPuns,
+    TypeFamilies,
+    GeneralizedNewtypeDeriving,
+    DeriveGeneric,
+    OverloadedStrings,
+    LambdaCase

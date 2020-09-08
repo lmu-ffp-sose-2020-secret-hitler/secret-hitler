@@ -14,9 +14,20 @@ library
                , obelisk-executable-config-lookup
                , obelisk-generated-static
                , text
+               , generic-lens
   exposed-modules:
     Frontend
   ghc-options: -Wall
+  default-extensions:
+    OverloadedLabels,
+    DuplicateRecordFields,
+    DerivingStrategies,
+    NamedFieldPuns,
+    TypeFamilies,
+    GeneralizedNewtypeDeriving,
+    DeriveGeneric,
+    OverloadedStrings,
+    LambdaCase
 
 executable frontend
   main-is: main.hs

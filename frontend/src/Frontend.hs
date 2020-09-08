@@ -1,15 +1,19 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Frontend where
 
 import Data.List.NonEmpty
 -- import Control.Monad (void)
-import qualified Data.Text as T
+import Data.Text (Text)
+-- import qualified Data.Text as T
 import qualified Data.Text.Encoding as T.E
 import qualified Data.ByteString as B
 import Text.URI
+import Control.Lens
+import qualified Data.Aeson as A
+import Common.MessageTypes
+import Data.Generics.Labels ()
 
 import Obelisk.Frontend
 import Obelisk.Configs
@@ -46,41 +50,39 @@ frontend =
           --   case exampleConfig of
           --     Nothing -> text "No config file found in config/common/example"
           --     Just s -> text $ T.E.decodeUtf8 s
+          
           r <- (fmap . fmap) T.E.decodeUtf8 (getConfig "common/route")
-          _ <- wsRespEv r
+          playerNames <-
+            (holdDyn [] =<<) $
+            (fmap . fmap) (view #playerNames :: ServerToClient -> [Text]) $
+            fmap (mapMaybe A.decodeStrict') $
+            fmap switchDyn $
+            prerender
+              (pure never)
+              (case webSocketUri r of
+                Left _ -> pure never
+                Right uri ->
+                  fmap (view webSocket_recv) $
+                  webSocket (render uri)
+                    (def & webSocketConfig_send .~ (never :: Reflex t => Event t [B.ByteString]))
+              )
+          _ <- el "ul" $ simpleList playerNames (\m -> el "li" $ dynText m)
           pure ()
     }
 
-wsRespEv ::
-  (
-    Reflex t,
-    Monad m,
-    Prerender js t m
-  ) => Maybe T.Text -> m (Dynamic t (Event t B.ByteString))
-wsRespEv r =
-  prerender
-    (pure never)
-    (case checkEncoder fullRouteEncoder of
-      Left err -> do
-        el "div" $ text err
-        pure never
-      Right encoder ->
+webSocketUri :: Maybe Text -> Either (Maybe Text) URI
+webSocketUri r =
+  case checkEncoder fullRouteEncoder of
+    Left errorText -> Left (Just errorText)
+    Right encoder ->
+      maybe (Left Nothing) Right $
+      do
         let
           wsPath = fst $ encode encoder $ (FullRoute_Backend BackendRoute_Main) :/ ()
-          mUri = do
-            uri' <- mkURI =<< r
-            pathPiece <- nonEmpty =<< mapM mkPathPiece wsPath
-            wsScheme <- case uriScheme uri' of
-              rtextScheme | rtextScheme == mkScheme "https" -> mkScheme "wss"
-              rtextScheme | rtextScheme == mkScheme "http" -> mkScheme "ws"
-              _ -> Nothing
-            pure $
-              uri' {uriPath = Just (False, pathPiece), uriScheme = Just wsScheme}
-          in
-            case mUri of
-              Nothing -> pure never
-              Just uri ->
-                fmap _webSocket_recv $
-                webSocket (render uri)
-                  (def & webSocketConfig_send .~ (never :: Reflex t => Event t [B.ByteString]))
-    )
+        uri' <- mkURI =<< r
+        pathPiece <- nonEmpty =<< mapM mkPathPiece wsPath
+        wsScheme <- case uriScheme uri' of
+          rtextScheme | rtextScheme == mkScheme "https" -> mkScheme "wss"
+          rtextScheme | rtextScheme == mkScheme "http" -> mkScheme "ws"
+          _ -> Nothing
+        pure (uri' {uriPath = Just (False, pathPiece), uriScheme = Just wsScheme})

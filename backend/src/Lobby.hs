@@ -1,5 +1,6 @@
 module Lobby where
 
+import Data.Foldable (for_)
 import qualified Network.WebSockets as WS
 import Control.Lens
 import Control.Concurrent
@@ -15,7 +16,7 @@ import GHC.Generics (Generic)
 import Data.Generics.Labels ()
 
 newtype PlayerId = PlayerId Int
-  deriving newtype (Eq, Ord)
+  deriving newtype (Eq, Ord, Enum)
 
 data Player = Player {
   name :: Text,
@@ -39,11 +40,17 @@ application lobbyMVar pending = do
   conn <- WS.acceptRequest pending
   WS.forkPingThread conn 30
   (WS.sendTextData conn . A.encode . lobbyMessage) =<< readMVar lobbyMVar
-  playerId <- modifyMVar lobbyMVar $ \lobby ->
+  playerId <- modifyMVar lobbyMVar $ \lobbyOld ->
     let
-      playerId = fromMaybe (PlayerId 0) (fst <$> (M.lookupMax $ lobby ^. #players))
-      player = (Player "" conn)
-    in pure (lobby & #players . at playerId .~ Just player, playerId)
+      playerId =
+        fromMaybe
+          (PlayerId 0)
+          ((succ . fst) <$> (M.lookupMax $ lobbyOld ^. #players))
+      lobbyNew = lobbyOld & #players . at playerId .~ Just (Player "lol" conn)
+    in
+      broadcast lobbyNew -- to-do. Are we fine with doing network IO while holding the mutex?
+      *>
+      pure (lobbyNew, playerId)
 
   talk playerId conn `finally` removePlayer playerId lobbyMVar
 
@@ -51,8 +58,24 @@ removePlayer :: PlayerId -> MVar Lobby -> IO ()
 removePlayer playerId lobbyMVar =
   modifyMVar_
     lobbyMVar
-    (pure . set (#players . at playerId) Nothing)
+    (
+      \lobbyOld ->
+      let lobbyNew = set (#players . at playerId) Nothing lobbyOld
+      in
+        broadcast lobbyNew -- to-do. Are we fine with doing network IO while holding the mutex?
+        *>
+        pure lobbyNew
+    )
 
 talk :: PlayerId -> WS.Connection -> IO ()
 talk _playerId conn = forever $ do
   WS.receiveData conn :: IO Text
+
+broadcast :: Lobby -> IO ()
+broadcast lobby@(Lobby {players}) =
+  for_
+    players
+    (
+      \(Player {connection}) ->
+      WS.sendTextData connection $ A.encode $ lobbyMessage $ lobby
+    )

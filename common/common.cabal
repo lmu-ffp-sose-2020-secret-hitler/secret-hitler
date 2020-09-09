@@ -5,21 +5,23 @@ build-type: Simple
 
 library
   hs-source-dirs: src
-  build-depends: base
-               , obelisk-route
-               , mtl
-               , text
+  build-depends:
+    base,
+    obelisk-route,
+    mtl,
+    text,
+    aeson
   exposed-modules:
-    Common.Api
     Common.Route
+    Common.MessageTypes
   ghc-options: -Wall
   default-extensions:
-    OverloadedLabels,
-    DuplicateRecordFields,
-    DerivingStrategies,
-    NamedFieldPuns,
-    TypeFamilies,
-    GeneralizedNewtypeDeriving,
-    DeriveGeneric,
-    OverloadedStrings,
+    OverloadedLabels
+    DuplicateRecordFields
+    DerivingStrategies
+    NamedFieldPuns
+    TypeFamilies
+    GeneralizedNewtypeDeriving
+    DeriveGeneric
+    OverloadedStrings
     LambdaCase

@@ -20,10 +20,15 @@ library
     generic-lens,
     nonempty-containers,
     vector-shuffling,
-    websockets-snap
+    vector,
+    websockets-snap,
+    websockets,
+    dependent-sum,
+    aeson
   exposed-modules:
-    Backend,
+    Backend
     Game
+    Lobby
   ghc-options:
     -Weverything
     -Wno-implicit-prelude
@@ -34,14 +39,14 @@ library
     -Wno-unsafe
     -Wno-missing-local-signatures
   default-extensions:
-    OverloadedLabels,
-    DuplicateRecordFields,
-    DerivingStrategies,
-    NamedFieldPuns,
-    TypeFamilies,
-    GeneralizedNewtypeDeriving,
-    DeriveGeneric,
-    OverloadedStrings,
+    OverloadedLabels
+    DuplicateRecordFields
+    DerivingStrategies
+    NamedFieldPuns
+    TypeFamilies
+    GeneralizedNewtypeDeriving
+    DeriveGeneric
+    OverloadedStrings
     LambdaCase
 
 executable backend

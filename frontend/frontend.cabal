@@ -5,40 +5,48 @@ build-type: Simple
 
 library
   hs-source-dirs: src
-  build-depends: base
-               , common
-               , obelisk-frontend
-               , obelisk-route
-               , jsaddle
-               , reflex-dom
-               , obelisk-executable-config-lookup
-               , obelisk-generated-static
-               , text
-               , generic-lens
+  build-depends:
+    base,
+    common,
+    obelisk-frontend,
+    obelisk-route,
+    jsaddle,
+    reflex-dom,
+    obelisk-executable-config-lookup,
+    obelisk-generated-static,
+    text,
+    bytestring,
+    modern-uri,
+    generic-lens,
+    lens,
+    aeson
   exposed-modules:
     Frontend
   ghc-options: -Wall
   default-extensions:
-    OverloadedLabels,
-    DuplicateRecordFields,
-    DerivingStrategies,
-    NamedFieldPuns,
-    TypeFamilies,
-    GeneralizedNewtypeDeriving,
-    DeriveGeneric,
-    OverloadedStrings,
+    OverloadedLabels
+    DuplicateRecordFields
+    DerivingStrategies
+    NamedFieldPuns
+    TypeFamilies
+    GeneralizedNewtypeDeriving
+    DeriveGeneric
+    OverloadedStrings
     LambdaCase
+    TypeApplications
+    DataKinds
 
 executable frontend
   main-is: main.hs
   hs-source-dirs: src-bin
-  build-depends: base
-               , common
-               , obelisk-frontend
-               , obelisk-route
-               , reflex-dom
-               , obelisk-generated-static
-               , frontend
+  build-depends:
+    base,
+    common,
+    obelisk-frontend,
+    obelisk-route,
+    reflex-dom,
+    obelisk-generated-static,
+    frontend
   --TODO: Make these ghc-options optional
   ghc-options: -threaded
   if os(darwin)

@@ -15,9 +15,9 @@ data StateFromServer =
   LobbyFromServer LobbyFromServer |
   GameFromServer GameFromServer
   deriving stock (Generic)
-instance ToJSON ServerFromServer where
+instance ToJSON StateFromServer where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON ServerFromServer
+instance FromJSON StateFromServer
 
 data LobbyFromServer =
   LobbyMessage {
@@ -38,24 +38,24 @@ instance ToJSON GameFromServer where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON GameFromServer
 
-data ClientToServer =
-  LobbyToServer LobbyToServer |
-  GameToServer GameToServer
+data InputFromClient =
+  LobbyInput LobbyInput |
+  GameInput GameInput
   deriving stock (Show, Generic)
-instance ToJSON ClientToServer where
+instance ToJSON InputFromClient where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON ClientToServer
+instance FromJSON InputFromClient
 
-data LobbyToServer =
+data LobbyInput =
   Join Text
   deriving stock (Show, Generic)
-instance ToJSON LobbyToServer where
+instance ToJSON LobbyInput where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON LobbyToServer
+instance FromJSON LobbyInput
 
-data GameToServer =
+data GameInput =
   IncreaseLiberalPolicyCount
   deriving stock (Show, Generic)
-instance ToJSON GameToServer where
+instance ToJSON GameInput where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON GameToServer
+instance FromJSON GameInput

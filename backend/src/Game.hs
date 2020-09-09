@@ -90,9 +90,6 @@ data GamePhase =
   ChancellorDiscardPolicyPhase ChancellorDiscardPolicyPhasePayload
   deriving stock (Show)
 
-data PresidentTracker = PresidentTracker {
-} deriving stock (Show, Generic)
-
 data Game = Game {
   phase :: GamePhase,
   -- players includes dead players too.

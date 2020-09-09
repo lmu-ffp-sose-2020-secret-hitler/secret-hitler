@@ -4,14 +4,36 @@ import Data.Text (Text)
 import Data.Aeson as A
 import GHC.Generics (Generic)
 
+data GameView = GameView {
+  policyLiberalCount :: Int
+} deriving stock (Generic)
+instance ToJSON GameView where
+  toEncoding = genericToEncoding defaultOptions
+instance FromJSON GameView
+
 data ServerToClient =
-  LobbyMessage {
-    playerNames :: [Text]
-  }
+  LobbyToClient LobbyToClient |
+  GameToClient GameToClient
   deriving stock (Generic)
 instance ToJSON ServerToClient where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON ServerToClient
+
+data LobbyToClient =
+  LobbyMessage {
+    playerNames :: [Text]
+  }
+  deriving stock (Generic)
+instance ToJSON LobbyToClient where
+  toEncoding = genericToEncoding defaultOptions
+instance FromJSON LobbyToClient
+
+data GameToClient =
+  GameMessage GameView
+  deriving stock (Generic)
+instance ToJSON GameToClient where
+  toEncoding = genericToEncoding defaultOptions
+instance FromJSON GameToClient
 
 data ClientToServer =
   LobbyToServer LobbyToServer |
@@ -34,9 +56,3 @@ data GameToServer =
 instance ToJSON GameToServer where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON GameToServer
-
--- update :: ClientToServer -> IO ()
--- update data = case data of
---   LobbyToServer (Join nameNew) ->...
---   GameToServer (IncreaseLiberalPolicyCount) ->...
-  

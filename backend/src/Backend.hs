@@ -117,23 +117,23 @@ talk id connection stateMVar = do
           GameToServer payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
 
 answerLobbyToServer :: Int -> LobbyToServer -> ServerState -> IO (ServerState)
-answerLobbyToServer id payload stateOld@ServerState {gameState=LobbyState lobbyOld} =
-  case payload of
-    Join nameNew -> do
-      let lobbyNew = lobbyOld & #players . ix id . #name .~ nameNew
-          stateNew = stateOld & #gameState .~ LobbyState lobbyNew
-      broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
-      return stateNew
+answerLobbyToServer id payload stateOld@ServerState {gameState=LobbyState lobbyOld} = do
+  let lobbyNew = updateLobby id payload lobbyOld
+      stateNew = stateOld & #gameState .~ LobbyState lobbyNew
+  broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
+  return stateNew
 answerLobbyToServer _id _payload stateOld = return stateOld
 
+updateLobby :: Int -> LobbyToServer -> Lobby -> Lobby
+updateLobby id (Join nameNew) = #players . ix id . #name .~ nameNew
+
 answerGameToServer :: Int -> GameToServer -> ServerState -> IO (ServerState)
-answerGameToServer _id payload stateOld@ServerState {gameState=GameState gameOld} = do
-  let action = toGameAction payload
-      gameNew = action gameOld
+answerGameToServer id payload stateOld@ServerState {gameState=GameState gameOld} = do
+  let gameNew = updateGame id payload gameOld
       stateNew = stateOld & #gameState .~ GameState gameNew
   broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
   return stateNew
 answerGameToServer _id _payload stateOld = return stateOld
 
-toGameAction :: GameToServer -> Game -> Game
-toGameAction IncreaseLiberalPolicyCount = #goodPolicies %~ (+1)
+updateGame :: Int -> GameToServer -> Game -> Game
+updateGame _id IncreaseLiberalPolicyCount = #goodPolicies %~ (+1)

@@ -16,21 +16,21 @@ instance FromJSON ServerToClient
 data ClientToServer =
   LobbyToServer LobbyToServer |
   GameToServer GameToServer
-  deriving stock (Generic)
+  deriving stock (Show, Generic)
 instance ToJSON ClientToServer where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON ClientToServer
 
 data LobbyToServer =
   Join Text
-  deriving stock (Generic)
+  deriving stock (Show, Generic)
 instance ToJSON LobbyToServer where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON LobbyToServer
 
 data GameToServer =
   IncreaseLiberalPolicyCount
-  deriving stock (Generic)
+  deriving stock (Show, Generic)
 instance ToJSON GameToServer where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON GameToServer

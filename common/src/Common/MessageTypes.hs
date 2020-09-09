@@ -11,29 +11,32 @@ instance ToJSON GameView where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON GameView
 
-data ServerToClient =
-  LobbyToClient LobbyToClient |
-  GameToClient GameToClient
+data StateFromServer =
+  LobbyFromServer LobbyFromServer |
+  GameFromServer GameFromServer
   deriving stock (Generic)
-instance ToJSON ServerToClient where
+instance ToJSON ServerFromServer where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON ServerToClient
+instance FromJSON ServerFromServer
 
-data LobbyToClient =
+data LobbyFromServer =
   LobbyMessage {
     playerNames :: [Text]
   }
   deriving stock (Generic)
-instance ToJSON LobbyToClient where
+instance ToJSON LobbyFromServer where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON LobbyToClient
+instance FromJSON LobbyFromServer
 
-data GameToClient =
+lobbyFromServerInitial :: LobbyFromServer
+lobbyFromServerInitial = LobbyMessage []
+
+data GameFromServer =
   GameMessage GameView
   deriving stock (Generic)
-instance ToJSON GameToClient where
+instance ToJSON GameFromServer where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON GameToClient
+instance FromJSON GameFromServer
 
 data ClientToServer =
   LobbyToServer LobbyToServer |

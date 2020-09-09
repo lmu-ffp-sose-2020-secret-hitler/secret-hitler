@@ -71,6 +71,9 @@ application stateMVar pending = do
     Nothing -> return ()
     Just (id, connection) -> talk id connection stateMVar `finally` removeClient id stateMVar
 
+nextId :: IntMap b -> Int
+nextId map = fromMaybe 0 (succ <$> fst <$> IntMap.lookupMax map)
+
 removeClient :: Int -> MVar ServerState -> IO ()
 removeClient id stateMVar = do
   putStrLn $ "Client " ++ show id ++ " disconnected"
@@ -84,19 +87,16 @@ removeClientFromLobby id (LobbyState lobby) =
   LobbyState $ Lobby.removePlayer id lobby
 removeClientFromLobby _id gameState = gameState
 
-nextId :: IntMap b -> Int
-nextId map =
-  fromMaybe 0 (succ <$> fst <$> IntMap.lookupMax map)
-
 broadcast :: ServerState -> IO ()
-broadcast (ServerState {connections, gameState = LobbyState lobby}) =
+broadcast (ServerState {connections, gameState}) =
   for_ connections $ \connection ->
-    sendLobby lobby connection
+    sendState gameState connection
 
 sendState :: GameState -> WS.Connection -> IO ()
 sendState state =
   case state of
     LobbyState lobby -> sendLobby lobby
+    GameState game -> undefined
 
 sendLobby :: Lobby -> WS.Connection -> IO ()
 sendLobby lobby connection = WS.sendTextData connection $ Aeson.encode $ lobbyMessage $ lobby
@@ -122,7 +122,9 @@ answerLobbyToServer id payload stateOld@ServerState {gameState=LobbyState lobbyO
       stateNew = stateOld & #gameState .~ LobbyState lobbyNew
   broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
   return stateNew
-answerLobbyToServer _id _payload stateOld = return stateOld
+answerLobbyToServer _id _payload stateOld = do
+  putStrLn "There is currently no active Lobby"
+  return stateOld
 
 updateLobby :: Int -> LobbyToServer -> Lobby -> Lobby
 updateLobby id (Join nameNew) = #players . ix id . #name .~ nameNew
@@ -133,7 +135,9 @@ answerGameToServer id payload stateOld@ServerState {gameState=GameState gameOld}
       stateNew = stateOld & #gameState .~ GameState gameNew
   broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
   return stateNew
-answerGameToServer _id _payload stateOld = return stateOld
+answerGameToServer _id _payload stateOld = do
+  putStrLn "There is currently no Game in progress"
+  return stateOld
 
 updateGame :: Int -> GameToServer -> Game -> Game
 updateGame _id IncreaseLiberalPolicyCount = #goodPolicies %~ (+1)

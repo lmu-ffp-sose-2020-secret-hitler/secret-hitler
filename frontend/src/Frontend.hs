@@ -47,13 +47,7 @@ frontend =
           --   case exampleConfig of
           --     Nothing -> text "No config file found in config/common/example"
           --     Just s -> text $ T.E.decodeUtf8 s
-          nameElement <- inputElement $ def
-          let
-            joinMessage =
-              fmap (: []) $
-              fmap A.encode $
-              fmap Join $
-              tag (current $ value nameElement) (domEvent Keyup nameElement)
+          lobbyMessage <- lobbyWidget
           r <- (fmap . fmap) T.E.decodeUtf8 (getConfig "common/route")
           playerNames <-
             (holdDyn [] =<<) $
@@ -67,11 +61,24 @@ frontend =
                 Right uri ->
                   fmap (view webSocket_recv) $
                   webSocket (render uri)
-                    (def & webSocketConfig_send .~ joinMessage)
+                    (def & webSocketConfig_send .~ (((: []) . A.encode) <$> lobbyMessage))
               )
           _ <- el "ul" $ simpleList playerNames (\m -> el "li" $ dynText m)
           pure ()
     }
+
+gameWidget :: DomBuilder t m => m (Event t GameToServer)
+gameWidget =
+  do
+    pure never
+
+lobbyWidget :: DomBuilder t m => m (Event t LobbyToServer)
+lobbyWidget =
+  do
+    nameElement <- inputElement $ def
+    pure $
+      Join <$>
+      tag (current $ value nameElement) (domEvent Keyup nameElement)
 
 webSocketUri :: Maybe Text -> Either (Maybe Text) URI
 webSocketUri r =

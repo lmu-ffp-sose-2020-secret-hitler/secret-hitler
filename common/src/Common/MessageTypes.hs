@@ -14,8 +14,29 @@ instance ToJSON ServerToClient where
 instance FromJSON ServerToClient
 
 data ClientToServer =
-  Join Text
+  LobbyToServer LobbyToServer |
+  GameToServer GameToServer
   deriving stock (Generic)
 instance ToJSON ClientToServer where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON ClientToServer
+
+data LobbyToServer =
+  Join Text
+  deriving stock (Generic)
+instance ToJSON LobbyToServer where
+  toEncoding = genericToEncoding defaultOptions
+instance FromJSON LobbyToServer
+
+data GameToServer =
+  IncreaseLiberalPolicyCount
+  deriving stock (Generic)
+instance ToJSON GameToServer where
+  toEncoding = genericToEncoding defaultOptions
+instance FromJSON GameToServer
+
+-- update :: ClientToServer -> IO ()
+-- update data = case data of
+--   LobbyToServer (Join nameNew) ->...
+--   GameToServer (IncreaseLiberalPolicyCount) ->...
+  

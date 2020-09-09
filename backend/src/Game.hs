@@ -33,14 +33,25 @@ data Vote =
   deriving stock (Show, Read)
 
 data Player = Player {
-  role  :: Role,
-  vote  :: Maybe Vote,
+  name :: Text,
+  turnOrder :: Int,
+  role :: Role,
+  vote :: Maybe Vote,
   alive :: Bool
 } deriving stock (Show, Generic)
 
-newPlayer :: Role -> Player
-newPlayer role = Player {
-  role = role,
+instance Eq Player where
+  p1 == p2 = (p1 ^. #turnOrder) == (p2 ^. #turnOrder)
+
+instance Ord Player where
+  compare p1 p2 = compare (p1 ^. #turnOrder) (p2 ^. #turnOrder)
+
+newPlayer :: Text -> Int -> Role -> Player
+newPlayer name turnOrder role = Player {
+  name,
+  -- A number in [0;playerCount[ specifying the turn order
+  turnOrder,
+  role,
   vote = Nothing,
   alive = True
 }
@@ -80,38 +91,32 @@ data GamePhase =
   deriving stock (Show)
 
 data PresidentTracker = PresidentTracker {
-    president :: Int,
-    regularPresidentLatest :: Int
 } deriving stock (Show, Generic)
-
-newPresidentTracker :: PresidentTracker
-newPresidentTracker = PresidentTracker {
-    president = 0,
-    regularPresidentLatest = 0
-  }
 
 data Game = Game {
   phase :: GamePhase,
   -- players includes dead players too.
   -- Use getAlivePlayers instead of #players wherever possible.
-  players :: Vector Player,
+  players :: IntMap Player,
   -- The cardPile contains the drawPile and the currentHand
   cardPile :: [Policy],
   goodPolicies :: Int,
   evilPolicies :: Int,
-  presidentTracker :: PresidentTracker,
+  president :: Int,
+  regularPresident :: Int,
   electionTracker :: Int
 } deriving stock (Show, Generic)
 
-getPresident :: Game -> Int
-getPresident = view (#presidentTracker . #president)
+getPresident :: Game -> Player
+getPresident game =
+  let presidentIdOld = game ^. #regularPresident in
+  fromMaybe
+    (error "president is not a player")
+    (game ^. #players . at presidentIdOld)
 
 getAlivePlayers :: Game -> IntMap Player
 getAlivePlayers game =
-  IntMap.fromDistinctAscList $
-  Vector.toList $
-  Vector.filter (view #alive . snd) $
-  Vector.indexed $
+  IntMap.filter (view #alive) $
   view #players $
   game
 
@@ -127,42 +132,56 @@ currentHandSize (Game { phase }) = case phase of
   ChancellorDiscardPolicyPhase {} -> 2
   _ -> 0
 
-newGame :: Vector Player -> [Policy] -> Game
+newGame :: IntMap Player -> [Policy] -> Game
 newGame players drawPile = Game {
   phase = NominateChancellorPhase $ NominateChancellorPhasePayload Nothing,
   players,
   cardPile = drawPile,
   evilPolicies = 0,
   goodPolicies = 0,
-  presidentTracker = newPresidentTracker,
+  president = 0,
+  regularPresident = 0,
   electionTracker = 0
 }
 
-generateRandomGame :: Int -> IO Game
-generateRandomGame playerCount = do
-  rngPlayers <- newStdGen
+generateRandomGame :: IntMap Text -> IO Game
+generateRandomGame playerNames = do
+  rngTurnOrder <- newStdGen
+  rngRoles <- newStdGen
   rngDrawPile <- newStdGen
-  let players = generateRandomPlayers playerCount rngPlayers
+  let players = generateRandomPlayers playerNames rngTurnOrder rngRoles
   let drawPile = generateRandomCardPile 6 11 rngDrawPile
   pure $ newGame players drawPile
 
-generateRandomPlayers :: Int -> StdGen -> Vector Player
-generateRandomPlayers playerCount rng =
-  fst $ shuffle (generate playerCount currentPlayer) rng
+generateRandomPlayers :: IntMap Text -> StdGen -> StdGen -> IntMap Player
+generateRandomPlayers playerNames rngTurnOrder rngRoles =
+  let playerCount = IntMap.size playerNames
+      turnOrders = generateRandomTurnOrders playerCount rngTurnOrder
+      roles = generateRandomRoles playerCount rngRoles in
+  IntMap.fromAscList $
+  zipWith3 (\(id, name) turnOrder role -> (id, newPlayer name turnOrder role))
+    (IntMap.toAscList playerNames) (Vector.toList turnOrders) (Vector.toList roles)
+
+generateRandomTurnOrders :: Int -> StdGen -> Vector Int
+generateRandomTurnOrders playerCount rng =
+  fst $ shuffle (generate playerCount id) rng
+
+generateRandomRoles :: Int -> StdGen -> Vector Role
+generateRandomRoles playerCount rng =
+  fst $ shuffle (generate playerCount currentRole) rng
   where
-    currentPlayer :: Int -> Player
-    currentPlayer = newPlayer . currentRole
+    currentRole :: Int -> Role
     currentRole playerCount = case playerCount of
-      1 -> EvilLeaderRole
+      0 -> EvilLeaderRole
+      1 -> GoodRole
       2 -> GoodRole
       3 -> GoodRole
-      4 -> GoodRole
-      5 -> EvilRole
-      6 -> GoodRole
-      7 -> EvilRole
-      8 -> GoodRole
-      9 -> EvilRole
-      10 -> GoodRole
+      4 -> EvilRole
+      5 -> GoodRole
+      6 -> EvilRole
+      7 -> GoodRole
+      8 -> EvilRole
+      9 -> GoodRole
       _ -> error $ "Unsupported player count " ++ show playerCount
 
 generateRandomCardPile :: Int -> Int -> StdGen -> [Policy]
@@ -200,9 +219,9 @@ updateChecked event@(UserInput actorId _) game
   isPlayerAllowedToAct :: Int -> Game -> Bool
   isPlayerAllowedToAct actorId game@(Game { phase }) =
     case phase of
-      NominateChancellorPhase {} -> actorId == getPresident game
+      NominateChancellorPhase {} -> actorId == game ^. #president
       VotePhase {} -> True
-      PresidentDiscardPolicyPhase {} -> actorId == getPresident game
+      PresidentDiscardPolicyPhase {} -> actorId == game ^. #president
       ChancellorDiscardPolicyPhase (ChancellorDiscardPolicyPhasePayload { chancellor }) -> actorId == chancellor
 
 update :: ClientEvent -> Game -> (Game, Maybe GameEvent)
@@ -278,21 +297,18 @@ advanceElectionTracker game@(Game { electionTracker }) =
   else enactTopPolicy game
 
 nominateNextRegularPresident :: Game -> Game
-nominateNextRegularPresident game =
-  over #presidentTracker (nextRegularPresident (getAlivePlayers game)) game
-
-nextRegularPresident :: IntMap value -> PresidentTracker -> PresidentTracker
-nextRegularPresident players presidentTracker =
-  let presidentialCandidate = presidentTracker ^. #regularPresidentLatest in
-  passPresidencyTo $
-  fromMaybe (error "all players dying should not be possible") $
-  fst <$> (IntMap.lookupGT (presidentialCandidate) players <|> IntMap.lookupMin players)
+nominateNextRegularPresident gameOld =
+  let presidentIdNew = nextRegularPresidentId gameOld in
+  gameOld
+    & #regularPresident .~ presidentIdNew
+    & #president .~ presidentIdNew
   where
-    passPresidencyTo :: Int -> PresidentTracker
-    passPresidencyTo nextPresident =
-      set #president nextPresident $
-      set #regularPresidentLatest nextPresident $
-      presidentTracker
+    nextRegularPresidentId game =
+      let president = getPresident game
+          alivePlayers = getAlivePlayers game in
+      fst $ fromMaybe (error "all players dying should not be possible") $
+        (IntMap.lookupMin $ IntMap.filter (president <) alivePlayers)
+        <|> (IntMap.lookupMin alivePlayers)
 
 discardPolicy :: Int -> Game -> (Game, Maybe GameEvent)
 discardPolicy policyIndex gameOld =

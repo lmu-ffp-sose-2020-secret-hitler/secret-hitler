@@ -303,12 +303,17 @@ nominateNextRegularPresident gameOld =
     & #regularPresident .~ presidentIdNew
     & #president .~ presidentIdNew
   where
+    nextRegularPresidentId :: Game -> Int
     nextRegularPresidentId game =
       let president = getPresident game
-          alivePlayers = getAlivePlayers game in
-      fst $ fromMaybe (error "all players dying should not be possible") $
-        (IntMap.lookupMin $ IntMap.filter (president <) alivePlayers)
-        <|> (IntMap.lookupMin alivePlayers)
+          alivePlayers = IntMap.toList $ getAlivePlayers game in
+      fst $
+      fromMaybe (error "all players dying should not be possible") $
+        (minimumMaybe $ filter ((president <) . snd) alivePlayers)
+        <|> (minimumMaybe $ alivePlayers)
+    minimumMaybe :: Ord a => [a] -> Maybe a
+    minimumMaybe [] = Nothing
+    minimumMaybe list = Just $ minimum list
 
 discardPolicy :: Int -> Game -> (Game, Maybe GameEvent)
 discardPolicy policyIndex gameOld =

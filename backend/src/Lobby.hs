@@ -46,13 +46,13 @@ application lobbyMVar pending = do
         fromMaybe
           (PlayerId 0)
           ((succ . fst) <$> (M.lookupMax $ lobbyOld ^. #players))
-      lobbyNew = lobbyOld & #players . at playerId .~ Just (Player "lol" conn)
+      lobbyNew = lobbyOld & #players . at playerId .~ Just (Player "new player" conn)
     in
       broadcast lobbyNew -- to-do. Are we fine with doing network IO while holding the mutex?
       *>
       pure (lobbyNew, playerId)
 
-  talk playerId conn `finally` removePlayer playerId lobbyMVar
+  talk playerId conn lobbyMVar `finally` removePlayer playerId lobbyMVar
 
 removePlayer :: PlayerId -> MVar Lobby -> IO ()
 removePlayer playerId lobbyMVar =
@@ -67,9 +67,23 @@ removePlayer playerId lobbyMVar =
         pure lobbyNew
     )
 
-talk :: PlayerId -> WS.Connection -> IO ()
-talk _playerId conn = forever $ do
-  WS.receiveData conn :: IO Text
+talk :: PlayerId -> WS.Connection -> MVar Lobby -> IO ()
+talk playerId conn lobbyMVar = forever $
+  A.decodeStrict' <$> WS.receiveData conn
+  >>=
+  \case
+    Nothing -> pure ()
+    Just (Join newName) ->
+      modifyMVar_
+        lobbyMVar
+        (
+          \lobbyOld ->
+          let lobbyNew = set (#players . ix playerId . #name) newName lobbyOld
+          in
+            broadcast lobbyNew -- to-do. Are we fine with doing network IO while holding the mutex?
+            *>
+            pure lobbyNew
+        )
 
 broadcast :: Lobby -> IO ()
 broadcast lobby@(Lobby {players}) =

@@ -5,7 +5,7 @@ import Data.List.NonEmpty
 import Data.Text (Text)
 -- import qualified Data.Text as T
 import qualified Data.Text.Encoding as T.E
-import qualified Data.ByteString as B
+-- import qualified Data.ByteString as B
 import Text.URI
 import Control.Lens
 import qualified Data.Aeson as A
@@ -47,7 +47,13 @@ frontend =
           --   case exampleConfig of
           --     Nothing -> text "No config file found in config/common/example"
           --     Just s -> text $ T.E.decodeUtf8 s
-          
+          nameElement <- inputElement $ def
+          let
+            joinMessage =
+              fmap (: []) $
+              fmap A.encode $
+              fmap Join $
+              tag (current $ value nameElement) (domEvent Keyup nameElement)
           r <- (fmap . fmap) T.E.decodeUtf8 (getConfig "common/route")
           playerNames <-
             (holdDyn [] =<<) $
@@ -61,7 +67,7 @@ frontend =
                 Right uri ->
                   fmap (view webSocket_recv) $
                   webSocket (render uri)
-                    (def & webSocketConfig_send .~ (never :: Reflex t => Event t [B.ByteString]))
+                    (def & webSocketConfig_send .~ joinMessage)
               )
           _ <- el "ul" $ simpleList playerNames (\m -> el "li" $ dynText m)
           pure ()

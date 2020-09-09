@@ -15,3 +15,7 @@ instance FromJSON ServerToClient
 
 data ClientToServer =
   Join Text
+  deriving stock (Generic)
+instance ToJSON ClientToServer where
+  toEncoding = genericToEncoding defaultOptions
+instance FromJSON ClientToServer

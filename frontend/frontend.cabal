@@ -15,7 +15,6 @@ library
     obelisk-executable-config-lookup,
     obelisk-generated-static,
     text,
-    bytestring,
     modern-uri,
     generic-lens,
     lens,

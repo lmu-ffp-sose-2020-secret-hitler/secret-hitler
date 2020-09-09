@@ -1,5 +1,9 @@
+{-# language ScopedTypeVariables #-}
+{-# language AllowAmbiguousTypes #-}
+
 module Frontend where
 
+import GHC.TypeLits (Symbol)
 import Data.List.NonEmpty
 -- import Control.Monad (void)
 import Data.Text (Text)
@@ -47,7 +51,7 @@ frontend =
           --   case exampleConfig of
           --     Nothing -> text "No config file found in config/common/example"
           --     Just s -> text $ T.E.decodeUtf8 s
-          lobbyMessage <- lobbyWidget
+          lobbyMessage <- gameWidget
           r <- (fmap . fmap) T.E.decodeUtf8 (getConfig "common/route")
           playerNames <-
             (holdDyn [] =<<) $
@@ -70,7 +74,37 @@ frontend =
 gameWidget :: DomBuilder t m => m (Event t GameToServer)
 gameWidget =
   do
+    elId "div" "board" $ do
+      imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
+      imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
+      elId "div" "board_liberal" $ do
+        imgStyle @"policy_liberal.png" "grid-area: 1 / 3 / 2 / 4" blank
+        imgStyle @"policy_liberal.png" "grid-area: 1 / 5 / 2 / 6" blank
+        imgStyle @"policy_liberal.png" "grid-area: 1 / 7 / 2 / 8" blank
+        imgStyle @"policy_liberal.png" "grid-area: 1 / 9 / 2 / 10" blank
+        imgStyle @"policy_liberal.png" "grid-area: 1 / 11 / 2 / 12" blank
+      imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
     pure never
+
+elId' ::
+  DomBuilder t m => Text -> Text -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
+elId' elementTag i = elAttr' elementTag ("id" =: i)
+
+elId :: DomBuilder t m => Text -> Text -> m a -> m a
+elId elementTag i child = snd <$> elId' elementTag i child
+
+imgStyle' ::
+  forall (source :: Symbol) t m a.
+  (DomBuilder t m, StaticFile source) =>
+  Text -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
+imgStyle' style child =
+  elAttr' "img" ("src" =: static @source <> "style" =: style) child
+
+imgStyle ::
+  forall (source :: Symbol) t m a.
+  (DomBuilder t m, StaticFile source) =>
+  Text -> m a -> m a
+imgStyle style child = snd <$> imgStyle' @source style child
 
 lobbyWidget :: DomBuilder t m => m (Event t LobbyToServer)
 lobbyWidget =

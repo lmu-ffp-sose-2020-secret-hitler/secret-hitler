@@ -10,7 +10,8 @@ library
     obelisk-route,
     mtl,
     text,
-    aeson
+    aeson,
+    dependent-sum
   exposed-modules:
     Common.Route
     Common.MessageTypes

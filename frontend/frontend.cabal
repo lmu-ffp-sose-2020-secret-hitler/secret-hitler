@@ -18,7 +18,8 @@ library
     modern-uri,
     generic-lens,
     lens,
-    aeson
+    aeson,
+    dependent-sum
   exposed-modules:
     Frontend
   ghc-options: -Wall

@@ -96,13 +96,13 @@ sendState :: GameState -> WS.Connection -> IO ()
 sendState state =
   case state of
     LobbyState lobby -> sendLobby lobby
-    GameState game -> undefined
+    GameState _game -> undefined
 
 sendLobby :: Lobby -> WS.Connection -> IO ()
 sendLobby lobby connection = WS.sendTextData connection $ Aeson.encode $ lobbyMessage $ lobby
 
-lobbyMessage :: Lobby -> ServerToClient
-lobbyMessage (Lobby {players}) = LobbyMessage $ fmap (view #name) $ IntMap.elems $ players
+lobbyMessage :: Lobby -> StateFromServer
+lobbyMessage (Lobby {players}) = LobbyFromServer $ LobbyView $ fmap (view #name) $ IntMap.elems $ players
 
 talk :: Int -> WS.Connection -> MVar ServerState -> IO ()
 talk id connection stateMVar = do
@@ -113,10 +113,10 @@ talk id connection stateMVar = do
       Just message -> do
         putStrLn $ "Received message from client " ++ show id ++ ": " ++ show message
         case message of
-          LobbyToServer payload -> modifyMVar_ stateMVar (answerLobbyToServer id payload)
-          GameToServer payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
+          LobbyInput payload -> modifyMVar_ stateMVar (answerLobbyToServer id payload)
+          GameInput payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
 
-answerLobbyToServer :: Int -> LobbyToServer -> ServerState -> IO (ServerState)
+answerLobbyToServer :: Int -> LobbyInput -> ServerState -> IO (ServerState)
 answerLobbyToServer id payload stateOld@ServerState {gameState=LobbyState lobbyOld} = do
   let lobbyNew = updateLobby id payload lobbyOld
       stateNew = stateOld & #gameState .~ LobbyState lobbyNew
@@ -126,10 +126,10 @@ answerLobbyToServer _id _payload stateOld = do
   putStrLn "There is currently no active Lobby"
   return stateOld
 
-updateLobby :: Int -> LobbyToServer -> Lobby -> Lobby
+updateLobby :: Int -> LobbyInput -> Lobby -> Lobby
 updateLobby id (Join nameNew) = #players . ix id . #name .~ nameNew
 
-answerGameToServer :: Int -> GameToServer -> ServerState -> IO (ServerState)
+answerGameToServer :: Int -> GameInput -> ServerState -> IO (ServerState)
 answerGameToServer id payload stateOld@ServerState {gameState=GameState gameOld} = do
   let gameNew = updateGame id payload gameOld
       stateNew = stateOld & #gameState .~ GameState gameNew
@@ -139,5 +139,5 @@ answerGameToServer _id _payload stateOld = do
   putStrLn "There is currently no Game in progress"
   return stateOld
 
-updateGame :: Int -> GameToServer -> Game -> Game
+updateGame :: Int -> GameInput -> Game -> Game
 updateGame _id IncreaseLiberalPolicyCount = #goodPolicies %~ (+1)

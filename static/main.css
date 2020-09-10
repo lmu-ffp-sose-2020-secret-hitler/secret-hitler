@@ -27,7 +27,8 @@ img {
     grid-area: board_liberal;
     display: grid;
     grid-template-rows: auto;
-    grid-template-columns: 530fr 56fr 463fr 122fr 462fr 122fr 457fr 121fr 463fr 121fr 465fr 62fr 528fr;
+    grid-template-columns:
+        586fr 463fr 122fr 462fr 122fr 457fr 121fr 463fr 121fr 465fr 590fr;
     justify-items: center;
     align-items: center;
 }

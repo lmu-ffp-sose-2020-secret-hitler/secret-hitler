@@ -33,6 +33,16 @@ img {
     max-height: 100%;
 }
 
+#board_fascist {
+    grid-area: board_fascist;
+    display: grid;
+    grid-template-rows: auto;
+    grid-template-columns:
+        293fr repeat(5, 463fr 122fr) 463fr 291fr;
+    justify-items: center;
+    align-items: center;
+}
+
 #board_liberal {
     grid-area: board_liberal;
     display: grid;

@@ -195,27 +195,31 @@ generateRandomCardPile goodPolicyCount evilPolicyCount rng =
   fst $
   shuffle (goodPolicies Vector.++ evilPolicies) rng
 
-data ClientEvent =
-  UserInput Int UserInput
+data PlayerAction =
+  GameAction Int GameAction
+  deriving stock (Show, Read)
+
+data GameAction =
+  NominateChancellor Int |
+  PlaceVote Vote |
+  PresidentDiscardPolicy Int |
+  ChancellorDiscardPolicy Int
   deriving stock (Show, Read)
 
 data GameEvent =
-  Error Text |
+  ChancellorNominated |
+  VotePlaced |
   SucceedVote |
-  FailVote
+  FailVote |
+  PresidentDiscardedPolicy |
+  ChancellorDiscardedPolicy |
+  Error Text
   deriving stock (Show)
 
-data UserInput =
-  NominateChancellor Int |
-  Vote Vote |
-  DiscardPresidentPolicy Int |
-  DiscardChancellorPolicy Int
-  deriving stock (Show, Read)
-
-updateChecked :: ClientEvent -> Game -> (Game, Maybe GameEvent)
-updateChecked event@(UserInput actorId _) game
+updateChecked :: PlayerAction -> Game -> (Game, GameEvent)
+updateChecked event@(GameAction actorId _) game
   | isPlayerAllowedToAct actorId game = update event game
-  | otherwise = (game, Just $ Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
+  | otherwise = (game, Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
   where
   isPlayerAllowedToAct :: Int -> Game -> Bool
   isPlayerAllowedToAct actorId game@(Game { phase }) =
@@ -225,22 +229,22 @@ updateChecked event@(UserInput actorId _) game
       PresidentDiscardPolicyPhase {} -> actorId == game ^. #president
       ChancellorDiscardPolicyPhase (ChancellorDiscardPolicyPhasePayload { chancellor }) -> actorId == chancellor
 
-update :: ClientEvent -> Game -> (Game, Maybe GameEvent)
-update (UserInput actorId userInput) =
+update :: PlayerAction -> Game -> (Game, GameEvent)
+update (GameAction actorId userInput) =
   case userInput of
     NominateChancellor playerId -> nominateChancellor playerId
-    Vote vote -> castVote actorId vote
-    DiscardPresidentPolicy policyIndex -> discardPolicy policyIndex
-    DiscardChancellorPolicy policyIndex -> discardPolicy policyIndex
+    PlaceVote vote -> placeVote actorId vote
+    PresidentDiscardPolicy policyIndex -> discardPolicy policyIndex
+    ChancellorDiscardPolicy policyIndex -> discardPolicy policyIndex
 
-withGameEvent :: Maybe GameEvent -> Game -> (Game, Maybe GameEvent)
+withGameEvent :: GameEvent -> Game -> (Game, GameEvent)
 withGameEvent = flip (,)
 
-nominateChancellor :: Int -> Game -> (Game, Maybe GameEvent)
+nominateChancellor :: Int -> Game -> (Game, GameEvent)
 nominateChancellor playerId gameOld@(Game {
   phase = NominateChancellorPhase NominateChancellorPhasePayload { governmentPrevious }
 }) =
-  withGameEvent Nothing $
+  withGameEvent ChancellorNominated $
   set (#players . traversed . #vote) Nothing $
   set #phase (VotePhase $ VotePhasePayload {
     chancellorCandidate = playerId,
@@ -248,10 +252,10 @@ nominateChancellor playerId gameOld@(Game {
   }) $
   gameOld
 nominateChancellor _playerId gameOld =
-  (gameOld, Just $ Error $ "Cannot nominate a chancellor outside of NominateChancellorPhase")
+  (gameOld, Error $ "Cannot nominate a chancellor outside of NominateChancellorPhase")
 
-castVote :: Int -> Vote -> Game -> (Game, Maybe GameEvent)
-castVote actorId vote gameOld@(Game {
+placeVote :: Int -> Vote -> Game -> (Game, GameEvent)
+placeVote actorId vote gameOld@(Game {
   phase = VotePhase VotePhasePayload {
     governmentPrevious,
     chancellorCandidate
@@ -259,9 +263,9 @@ castVote actorId vote gameOld@(Game {
 }) =
   let gameNew = set (#players . ix actorId . #vote) (Just vote) gameOld in
   case voteResult gameNew of
-    Nothing -> (gameNew, Nothing)
-    Just Yes -> (succeedVote gameNew, Just SucceedVote)
-    Just No -> (failVote gameNew, Just FailVote)
+    Nothing -> (gameNew, VotePlaced)
+    Just Yes -> (succeedVote gameNew, SucceedVote)
+    Just No -> (failVote gameNew, FailVote)
   where
     voteResult :: Game -> Maybe (Vote)
     voteResult game =
@@ -288,8 +292,8 @@ castVote actorId vote gameOld@(Game {
       nominateNextRegularPresident
       .
       advanceElectionTracker
-castVote _actorId _vote gameOld =
-  (gameOld, Just $ Error $ "Cannot vote outside of VotePhase")
+placeVote _actorId _vote gameOld =
+  (gameOld, Error $ "Cannot vote outside of VotePhase")
 
 advanceElectionTracker :: Game -> Game
 advanceElectionTracker game@(Game { electionTracker }) =
@@ -316,24 +320,24 @@ nominateNextRegularPresident gameOld =
     minimumMaybe [] = Nothing
     minimumMaybe list = Just $ minimum list
 
-discardPolicy :: Int -> Game -> (Game, Maybe GameEvent)
+discardPolicy :: Int -> Game -> (Game, GameEvent)
 discardPolicy policyIndex gameOld =
   case removePolicy policyIndex gameOld of
-    Left error -> (gameOld, Just $ Error $ error)
+    Left error -> (gameOld, Error $ error)
     Right gameNew@(Game { phase }) ->
       case phase of
         PresidentDiscardPolicyPhase (PresidentDiscardPolicyPhasePayload { chancellor }) ->
-          withGameEvent Nothing $
+          withGameEvent PresidentDiscardedPolicy $
           set #phase (ChancellorDiscardPolicyPhase $ ChancellorDiscardPolicyPhasePayload {
             chancellor = chancellor
           }) $
           gameNew
         ChancellorDiscardPolicyPhase {} ->
-          withGameEvent Nothing $
+          withGameEvent ChancellorDiscardedPolicy $
           nominateNextRegularPresident $
           enactTopPolicy $
           gameNew
-        _ -> (gameOld, Just $ Error $ "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
+        _ -> (gameOld, Error $ "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
   where
     removePolicy :: Int -> Game -> Either Text Game
     removePolicy policyIndex game =

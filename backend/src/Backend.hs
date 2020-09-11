@@ -3,7 +3,7 @@ module Backend where
 import Common.MessageTypes
 import Common.Route
 import Control.Concurrent
-import Control.Exception (finally)
+import Control.Exception (SomeException, catch, finally)
 import Control.Lens
 import Control.Monad
 import Data.Foldable (for_)
@@ -70,7 +70,10 @@ application stateMVar pending = do
         return (stateOld, Nothing)
   case result of
     Nothing -> return ()
-    Just (id, connection) -> talk id connection stateMVar `finally` removeClient id stateMVar
+    Just (id, connection) ->
+      talk id connection stateMVar
+      `catch` (putStrLn . show :: SomeException -> IO ())
+      `finally` (removeClient id stateMVar)
 
 nextId :: IntMap b -> Int
 nextId map = fromMaybe 0 (succ <$> fst <$> IntMap.lookupMax map)
@@ -92,20 +95,27 @@ removeClientFromLobby _id gameState = gameState
 
 broadcast :: ServerState -> IO ()
 broadcast (ServerState {connections, gameState}) =
-  for_ connections $ \connection ->
-    sendState gameState connection
+  for_ connections (sendState gameState)
 
 sendState :: GameState -> WS.Connection -> IO ()
-sendState state =
-  case state of
-    LobbyState lobby -> sendLobby lobby
-    GameState _game -> undefined
+sendState = sendMessage . stateMessage
 
-sendLobby :: Lobby -> WS.Connection -> IO ()
-sendLobby lobby connection = WS.sendTextData connection $ Aeson.encode $ lobbyMessage $ lobby
+sendMessage :: Aeson.ToJSON msg => msg -> WS.Connection -> IO ()
+sendMessage message connection = WS.sendTextData connection $ Aeson.encode message
 
-lobbyMessage :: Lobby -> StateFromServer
-lobbyMessage (Lobby {players}) = LobbyFromServer $ LobbyView $ fmap (view #name) $ IntMap.elems $ players
+stateMessage :: GameState -> StateFromServer
+stateMessage (LobbyState lobby) = LobbyFromServer $ lobbyView lobby
+stateMessage (GameState game) = GameFromServer $ gameView game
+
+lobbyView :: Lobby -> LobbyView
+lobbyView (Lobby {players}) = LobbyView {
+  playerNames = fmap (view #name) $ IntMap.elems $ players
+}
+
+gameView :: Game -> GameView
+gameView (Game {goodPolicies}) = GameView {
+  goodPolicies
+}
 
 talk :: Int -> WS.Connection -> MVar ServerState -> IO ()
 talk id connection stateMVar = do
@@ -122,16 +132,19 @@ talk id connection stateMVar = do
 
 answerLobbyToServer :: Int -> LobbyInput -> ServerState -> IO (ServerState)
 answerLobbyToServer id payload stateOld@ServerState {gameState=LobbyState lobbyOld} = do
-  let lobbyNew = updateLobby id payload lobbyOld
-      stateNew = stateOld & #gameState .~ LobbyState lobbyNew
+  stateNew <- case payload of
+    StartGame -> do
+      let playerNames = lobbyOld ^. #players <&> view #name
+      game <- Game.generateRandomGame playerNames
+      return $ stateOld & #gameState .~ GameState game
+    Join nameNew ->
+      let lobbyNew = lobbyOld & #players . ix id . #name .~ nameNew in
+      return $ stateOld & #gameState .~ LobbyState lobbyNew
   broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
   return stateNew
 answerLobbyToServer _id _payload stateOld = do
   putStrLn "There is currently no active Lobby"
   return stateOld
-
-updateLobby :: Int -> LobbyInput -> Lobby -> Lobby
-updateLobby id (Join nameNew) = #players . ix id . #name .~ nameNew
 
 answerGameToServer :: Int -> GameInput -> ServerState -> IO (ServerState)
 answerGameToServer id payload stateOld@ServerState {gameState=GameState gameOld} = do

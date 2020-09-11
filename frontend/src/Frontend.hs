@@ -112,9 +112,13 @@ lobbyWidget lobbyView =
   do
     _ <- el "ul" $ simpleList (view #playerNames <$> lobbyView) (\m -> el "li" $ dynText m)
     nameElement <- inputElement $ def
+    (startGameButton, _) <- elAttr' "button" ("type" =: "button") (text "Start Game")
+    -- Deprecated: "Use 'elAttr'' in combination with 'domEvent'
     pure $
-      Join <$>
-      (updated $ value nameElement)
+      leftmost [
+        StartGame <$ domEvent Click startGameButton,
+        Join <$> (updated $ value nameElement)
+      ]
 
 gameWidget :: DomBuilder t m => Dynamic t GameView ->  m (Event t GameInput)
 gameWidget _ =

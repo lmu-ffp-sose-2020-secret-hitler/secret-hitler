@@ -6,6 +6,7 @@ module Game where
 
 import Control.Applicative ((<|>))
 import Control.Lens hiding (element)
+import Control.Monad.State (State, evalState, get, put)
 import Data.Bool (bool)
 import Data.Function (on)
 import Data.Generics.Labels ()
@@ -154,31 +155,28 @@ newGame players drawPile =
     electionTracker = 0
   }
 
-generateRandomGame :: IntMap Text -> IO Game
+generateRandomGame :: IntMap Text -> Random Game
 generateRandomGame playerNames = do
-  rngTurnOrder <- newStdGen
-  rngRoles <- newStdGen
-  rngDrawPile <- newStdGen
-  let players = generateRandomPlayers playerNames rngTurnOrder rngRoles
-  let drawPile = generateRandomCardPile 6 11 rngDrawPile
-  pure $ newGame players drawPile
+  players <- generateRandomPlayers playerNames
+  drawPile <- generateRandomCardPile 6 11
+  return $ newGame players drawPile
 
-generateRandomPlayers :: IntMap Text -> StdGen -> StdGen -> IntMap Player
-generateRandomPlayers playerNames rngTurnOrder rngRoles =
+generateRandomPlayers :: IntMap Text -> Random (IntMap Player)
+generateRandomPlayers playerNames = do
   let playerCount = IntMap.size playerNames
-      turnOrders = generateRandomTurnOrders playerCount rngTurnOrder
-      roles = generateRandomRoles playerCount rngRoles in
-  IntMap.fromAscList $
-  zipWith3 (\(id, name) turnOrder role -> (id, newPlayer name turnOrder role))
+  turnOrders <- generateRandomTurnOrders playerCount
+  roles <- generateRandomRoles playerCount
+  return $ IntMap.fromAscList $
+    zipWith3 (\(id, name) turnOrder role -> (id, newPlayer name turnOrder role))
     (IntMap.toAscList playerNames) (Vector.toList turnOrders) (Vector.toList roles)
 
-generateRandomTurnOrders :: Int -> StdGen -> Vector Int
-generateRandomTurnOrders playerCount rng =
-  fst $ shuffle (generate playerCount id) rng
+generateRandomTurnOrders :: Int -> Random (Vector Int)
+generateRandomTurnOrders playerCount =
+  withStdGen $ shuffle (generate playerCount id)
 
-generateRandomRoles :: Int -> StdGen -> Vector Role
-generateRandomRoles playerCount rng =
-  fst $ shuffle (generate playerCount currentRole) rng
+generateRandomRoles :: Int -> Random (Vector Role)
+generateRandomRoles playerCount =
+  withStdGen $ shuffle (generate playerCount currentRole)
   where
     currentRole :: Int -> Role
     currentRole playerCount = case playerCount of
@@ -194,15 +192,13 @@ generateRandomRoles playerCount rng =
       9 -> GoodRole
       _ -> error $ "Unsupported player count " ++ show playerCount
 
-generateRandomCardPile :: Int -> Int -> StdGen -> [Policy]
-generateRandomCardPile goodPolicyCount evilPolicyCount rng =
+generateRandomCardPile :: Int -> Int -> Random [Policy]
+generateRandomCardPile goodPolicyCount evilPolicyCount =
   let
     goodPolicies = Vector.replicate goodPolicyCount GoodPolicy
     evilPolicies = Vector.replicate evilPolicyCount EvilPolicy
   in
-  Vector.toList $
-  fst $
-  shuffle (goodPolicies Vector.++ evilPolicies) rng
+  Vector.toList <$> (withStdGen $ shuffle (goodPolicies Vector.++ evilPolicies))
 
 data PlayerAction =
   GameAction Int GameAction
@@ -234,10 +230,10 @@ data GameEvent =
   Error Text
   deriving stock (Show)
 
-updateChecked :: PlayerAction -> Game -> (Game, GameEvent)
+updateChecked :: PlayerAction -> Game -> Random (Game, GameEvent)
 updateChecked event@(GameAction actorId _) game
   | isPlayerAllowedToAct actorId game = update event game
-  | otherwise = (game, Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
+  | otherwise = return (game, Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
   where
   isPlayerAllowedToAct :: Int -> Game -> Bool
   isPlayerAllowedToAct actorId game@(Game { phase }) =
@@ -251,18 +247,18 @@ updateChecked event@(GameAction actorId _) game
       ExecutionPhase {} -> actorIsPresident
       PendingVetoPhase {} -> actorIsPresident
 
-update :: PlayerAction -> Game -> (Game, GameEvent)
-update (GameAction actorId userInput) =
+update :: PlayerAction -> Game -> Random (Game, GameEvent)
+update (GameAction actorId userInput) = do
   case userInput of
-    NominateChancellor playerId -> nominateChancellor playerId
+    NominateChancellor playerId -> return . nominateChancellor playerId
     PlaceVote vote -> placeVote actorId vote
     PresidentDiscardPolicy policyIndex -> discardPolicy policyIndex
     ChancellorDiscardPolicy policyIndex -> discardPolicy policyIndex
-    StopPeekingPolicies -> stopPeekingPolicies
-    ExecutePlayer playerId -> executePlayer playerId
-    ProposeVeto -> proposeVeto
+    StopPeekingPolicies -> return . stopPeekingPolicies
+    ExecutePlayer playerId -> return . executePlayer playerId
+    ProposeVeto -> return . proposeVeto
     AcceptVeto -> acceptVeto
-    RejectVeto -> rejectVeto
+    RejectVeto -> return . rejectVeto
 
 withGameEvent :: GameEvent -> Game -> (Game, GameEvent)
 withGameEvent = flip (,)
@@ -294,15 +290,15 @@ isEligible chancellorCandidateId previousGovernment alivePlayers =
         then chancellorCandidateId /= chancellorId
         else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
 
-placeVote :: Int -> Vote -> Game -> (Game, GameEvent)
+placeVote :: Int -> Vote -> Game -> Random (Game, GameEvent)
 placeVote actorId vote gameOld@(Game {
   phase = VotePhase { previousGovernment, chancellorCandidateId }
 }) =
   let gameNew = gameOld & (#players . ix actorId . #vote) .~ Just vote in
   case voteResult gameNew of
-    Nothing -> (gameNew, VotePlaced)
-    Just Yes -> (succeedVote gameNew, VoteSucceeded)
-    Just No -> (failVote gameNew, VoteFailed)
+    Nothing -> return (gameNew, VotePlaced)
+    Just Yes -> return (succeedVote gameNew, VoteSucceeded)
+    Just No -> (, VoteFailed) <$> failVote gameNew
   where
     voteResult :: Game -> Maybe Vote
     voteResult game =
@@ -318,18 +314,18 @@ placeVote actorId vote gameOld@(Game {
     succeedVote :: Game -> Game
     succeedVote game =
       game & #phase .~ PresidentDiscardPolicyPhase { chancellorId = chancellorCandidateId }
-    failVote :: Game -> Game
+    failVote :: Game -> Random Game
     failVote game =
-      nominateNextRegularPresident previousGovernment $
+      fmap (nominateNextRegularPresident previousGovernment) $
       advanceElectionTracker $
       game
 placeVote _actorId _vote gameOld =
-  (gameOld, Error "Cannot vote outside of VotePhase")
+  return (gameOld, Error "Cannot vote outside of VotePhase")
 
-discardPolicy :: Int -> Game -> (Game, GameEvent)
+discardPolicy :: Int -> Game -> Random (Game, GameEvent)
 discardPolicy policyIndex gameOld =
   case removePolicy policyIndex gameOld of
-    Left error -> (gameOld, Error $ error)
+    Left error -> return (gameOld, Error $ error)
     Right gameNew -> updateGameAfterDiscard gameNew
   where
     removePolicy :: Int -> Game -> Either Text Game
@@ -340,26 +336,26 @@ discardPolicy policyIndex gameOld =
     removeElement :: Int -> [a] -> [a]
     removeElement i list = take i list ++ drop (i + 1) list
 
-    updateGameAfterDiscard :: Game -> (Game, GameEvent)
+    updateGameAfterDiscard :: Game -> Random (Game, GameEvent)
     updateGameAfterDiscard game@(Game {
       phase = PresidentDiscardPolicyPhase { chancellorId }
     }) =
-      withGameEvent PresidentDiscardedPolicy $
+      return $ withGameEvent PresidentDiscardedPolicy $
       game & #phase .~ ChancellorDiscardPolicyPhase { chancellorId }
     updateGameAfterDiscard gameOld@(Game {
       phase = ChancellorDiscardPolicyPhase { chancellorId }
-    }) =
-      let (gameNew, policy) = enactTopPolicy gameOld in
-      withGameEvent ChancellorDiscardedPolicy $
-      case policy of
-        GoodPolicy ->
-          endGovernment chancellorId gameNew
-        EvilPolicy ->
-          case presidentialPowerPhase chancellorId gameNew of
-            Just gamePhase -> gameNew & #phase .~ gamePhase
-            Nothing -> endGovernment chancellorId gameNew
+    }) = do
+      (gameNew, policy) <- enactTopPolicy gameOld
+      return $ withGameEvent ChancellorDiscardedPolicy $
+        case policy of
+          GoodPolicy ->
+            endGovernment chancellorId gameNew
+          EvilPolicy ->
+            case presidentialPowerPhase chancellorId gameNew of
+              Just gamePhase -> gameNew & #phase .~ gamePhase
+              Nothing -> endGovernment chancellorId gameNew
     updateGameAfterDiscard _game =
-      (gameOld, Error "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
+      return (gameOld, Error "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
 
 presidentialPowerPhase :: Int -> Game -> Maybe GamePhase
 presidentialPowerPhase chancellorId game =
@@ -381,9 +377,10 @@ presidentialPowerPhase chancellorId game =
           _ -> Nothing
      | otherwise -> Nothing
 
-enactTopPolicy :: Game -> (Game, Policy)
+enactTopPolicy :: Game -> Random (Game, Policy)
 enactTopPolicy game@(Game { cardPile = policy : cardPileTail }) =
-  (, policy) $
+  fmap (, policy) $
+  shuffleDrawPileIfNeccessary $
   game
     & (policyCount policy) %~ (+1)
     & #cardPile .~ cardPileTail
@@ -423,17 +420,18 @@ proposeVeto game@(Game {
 proposeVeto game =
   (game, Error "Cannot propose veto outside of ChancellorDiscardPolicyPhase")
 
-acceptVeto :: Game -> (Game, GameEvent)
+acceptVeto :: Game -> Random (Game, GameEvent)
 acceptVeto game@(Game {
   cardPile = _policy1 : _policy2 : cardPileTail,
   phase = PendingVetoPhase { chancellorId }
 }) =
-  withGameEvent VetoAccepted $
+  fmap (withGameEvent VetoAccepted) $
+  (shuffleDrawPileIfNeccessary =<<) $
   advanceElectionTracker $
   endGovernment chancellorId $
   game & #cardPile .~ cardPileTail
 acceptVeto game =
-  (game, Error "Cannot accept veto outside of PendingVetoPhase")
+  return (game, Error "Cannot accept veto outside of PendingVetoPhase")
 
 rejectVeto :: Game -> (Game, GameEvent)
 rejectVeto game@(Game {
@@ -444,13 +442,13 @@ rejectVeto game@(Game {
 rejectVeto game =
   (game, Error "Cannot reject veto outside of PendingVetoPhase")
 
-advanceElectionTracker :: Game -> Game
+advanceElectionTracker :: Game -> Random Game
 advanceElectionTracker game@(Game { electionTracker }) =
   if electionTracker < 2
-  then game & #electionTracker %~ (+1)
+  then return $ game & #electionTracker %~ (+1)
   else throwIntoChaos game
   where
-    throwIntoChaos game = fst $ enactTopPolicy game -- TODO reset eligibility
+    throwIntoChaos game = fst <$> enactTopPolicy game -- TODO reset eligibility
 
 endGovernment :: Int -> Game -> Game
 endGovernment chancellorId game =
@@ -479,3 +477,32 @@ nominateNextRegularPresident previousGovernment gameOld =
     minimumMaybe :: Ord a => [a] -> Maybe a
     minimumMaybe [] = Nothing
     minimumMaybe list = Just $ minimum list
+
+shuffleDrawPileIfNeccessary :: Game -> Random Game
+shuffleDrawPileIfNeccessary game =
+  if length (game ^. #cardPile) < 3
+  then
+    let
+      goodPolicyCount = 6 - game ^. #goodPolicyCount
+      evilPolicyCount = 11 - game ^. #evilPolicyCount
+    in do
+    drawPile <- generateRandomCardPile goodPolicyCount evilPolicyCount
+    return $ game & #cardPile .~ drawPile
+  else return game
+
+newtype Random a = Random (State StdGen a)
+  deriving newtype (Functor, Applicative, Monad)
+
+runRandomIO :: Random a -> IO a
+runRandomIO monad =
+  newStdGen >>= (return . evalRandom monad)
+
+evalRandom :: Random a -> StdGen -> a
+evalRandom (Random stateM) = evalState stateM
+
+withStdGen :: (StdGen -> (a, StdGen)) -> Random a
+withStdGen f = do
+  rngOld <- Random get
+  let (result, rngNew) = f rngOld
+  Random $ put rngNew
+  return result

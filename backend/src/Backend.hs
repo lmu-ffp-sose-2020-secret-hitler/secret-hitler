@@ -135,7 +135,7 @@ answerLobbyToServer id payload stateOld@ServerState {gameState=LobbyState lobbyO
   stateNew <- case payload of
     StartGame -> do
       let playerNames = lobbyOld ^. #players <&> view #name
-      game <- Game.generateRandomGame playerNames
+      game <- runRandomIO $ Game.generateRandomGame playerNames
       return $ stateOld & #gameState .~ GameState game
     Join nameNew ->
       let lobbyNew = lobbyOld & #players . ix id . #name .~ nameNew in

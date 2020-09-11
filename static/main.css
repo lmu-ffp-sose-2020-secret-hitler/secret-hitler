@@ -78,6 +78,7 @@ img {
 #phase_dependent>div {
     display: flex;
     flex-direction: row;
+    gap: var(--gap_size);
 }
 
 #vote_phase>img {

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-partial-fields #-}
+
 module Game where
 
 import Control.Applicative ((<|>))
@@ -66,28 +68,20 @@ data Government = Government {
   chancellor :: Int
 } deriving stock (Show)
 
-data NominateChancellorPhasePayload = NominateChancellorPhasePayload {
-  governmentPrevious :: Maybe Government
-} deriving stock (Show, Generic)
-
-data VotePhasePayload = VotePhasePayload {
-  governmentPrevious :: Maybe Government,
-  chancellorCandidate :: Int
-} deriving stock (Show, Generic)
-
-data PresidentDiscardPolicyPhasePayload = PresidentDiscardPolicyPhasePayload {
-  chancellor :: Int
-} deriving stock (Show, Generic)
-
-data ChancellorDiscardPolicyPhasePayload = ChancellorDiscardPolicyPhasePayload {
-  chancellor :: Int
-} deriving stock (Show, Generic)
-
 data GamePhase =
-  NominateChancellorPhase NominateChancellorPhasePayload |
-  VotePhase VotePhasePayload |
-  PresidentDiscardPolicyPhase PresidentDiscardPolicyPhasePayload |
-  ChancellorDiscardPolicyPhase ChancellorDiscardPolicyPhasePayload
+  NominateChancellorPhase {
+    governmentPrevious :: Maybe Government
+  } |
+  VotePhase {
+    governmentPrevious :: Maybe Government,
+    chancellorCandidate :: Int
+  } |
+  PresidentDiscardPolicyPhase {
+    chancellor :: Int
+  } |
+  ChancellorDiscardPolicyPhase {
+    chancellor :: Int
+  }
   deriving stock (Show)
 
 data Game = Game {
@@ -135,7 +129,7 @@ policyCount EvilPolicy = #evilPolicyCount
 
 newGame :: IntMap Player -> [Policy] -> Game
 newGame players drawPile = Game {
-  phase = NominateChancellorPhase $ NominateChancellorPhasePayload Nothing,
+  phase = NominateChancellorPhase Nothing,
   players,
   cardPile = drawPile,
   evilPolicyCount = 0,
@@ -227,7 +221,7 @@ updateChecked event@(GameAction actorId _) game
       NominateChancellorPhase {} -> actorId == game ^. #president
       VotePhase {} -> True
       PresidentDiscardPolicyPhase {} -> actorId == game ^. #president
-      ChancellorDiscardPolicyPhase (ChancellorDiscardPolicyPhasePayload { chancellor }) -> actorId == chancellor
+      ChancellorDiscardPolicyPhase { chancellor } -> actorId == chancellor
 
 update :: PlayerAction -> Game -> (Game, GameEvent)
 update (GameAction actorId userInput) =
@@ -242,11 +236,11 @@ withGameEvent = flip (,)
 
 nominateChancellor :: Int -> Game -> (Game, GameEvent)
 nominateChancellor playerId gameOld@(Game {
-  phase = NominateChancellorPhase NominateChancellorPhasePayload { governmentPrevious }
+  phase = NominateChancellorPhase { governmentPrevious }
 }) =
   withGameEvent ChancellorNominated $
   set (#players . traversed . #vote) Nothing $
-  set #phase (VotePhase $ VotePhasePayload {
+  set #phase (VotePhase {
     chancellorCandidate = playerId,
     governmentPrevious = governmentPrevious
   }) $
@@ -256,7 +250,7 @@ nominateChancellor _playerId gameOld =
 
 placeVote :: Int -> Vote -> Game -> (Game, GameEvent)
 placeVote actorId vote gameOld@(Game {
-  phase = VotePhase VotePhasePayload {
+  phase = VotePhase {
     governmentPrevious,
     chancellorCandidate
   }
@@ -280,12 +274,12 @@ placeVote actorId vote gameOld@(Game {
     voteToSum Yes = Sum 1
     succeedVote :: Game -> Game
     succeedVote =
-      set #phase (PresidentDiscardPolicyPhase $ PresidentDiscardPolicyPhasePayload {
+      set #phase (PresidentDiscardPolicyPhase {
           chancellor = chancellorCandidate
       })
     failVote :: Game -> Game
     failVote =
-      set #phase (NominateChancellorPhase $ NominateChancellorPhasePayload {
+      set #phase (NominateChancellorPhase {
         governmentPrevious = governmentPrevious
       })
       .
@@ -326,9 +320,9 @@ discardPolicy policyIndex gameOld =
     Left error -> (gameOld, Error $ error)
     Right gameNew@(Game { phase }) ->
       case phase of
-        PresidentDiscardPolicyPhase (PresidentDiscardPolicyPhasePayload { chancellor }) ->
+        PresidentDiscardPolicyPhase { chancellor } ->
           withGameEvent PresidentDiscardedPolicy $
-          set #phase (ChancellorDiscardPolicyPhase $ ChancellorDiscardPolicyPhasePayload {
+          set #phase (ChancellorDiscardPolicyPhase {
             chancellor = chancellor
           }) $
           gameNew

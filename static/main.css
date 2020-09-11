@@ -4,23 +4,21 @@
     grid-template-rows: repeat(2, auto);
     grid-template-columns: 684fr 3972fr 684fr;
     grid-template-areas:
-        "player_list board_fascist phase_dependent"
+        "player_list board_fascist identity"
         "draw_pile board_liberal discard_pile";
     justify-items: center;
     align-items: center;
     grid-gap: 8px;
 }
 
-#phase_dependent {
-    grid-area: phase_dependent;
-    border: 2px dashed blue;
-    color: blue;
-    justify-self: stretch;
-    align-self: stretch;
+#identity {
+    grid-area: identity;
+    align-self: start;
 }
 
 img {
     max-width: 100%;
+    max-height: 100%;
 }
 
 #board_liberal {
@@ -60,4 +58,16 @@ img {
     background: #444;
     color: white;
     padding-left: .8em;
+}
+
+#phase_dependent {
+    margin-top: 8px;
+}
+
+#ballots {
+    max-height: 100%;
+    display: grid;
+    grid-template-rows: 100px;
+    grid-template-columns: repeat(2, 145px);
+    grid-gap: 8px;
 }

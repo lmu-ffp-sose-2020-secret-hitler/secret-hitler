@@ -114,7 +114,7 @@ lobbyWidget lobbyView =
     nameElement <- inputElement $ def
     pure $
       Join <$>
-      tag (current $ value nameElement) (domEvent Keyup nameElement)
+      (updated $ value nameElement)
 
 gameWidget :: DomBuilder t m => Dynamic t GameView ->  m (Event t GameInput)
 gameWidget _ =

@@ -112,10 +112,10 @@ lobbyWidget lobbyView =
   do
     _ <- el "ul" $ simpleList (view #playerNames <$> lobbyView) (\m -> el "li" $ dynText m)
     nameElement <- inputElement $ def
-    (startGameButton, _) <- elAttr' "button" ("type" =: "button") (text "Start Game")
+    startGame <- (StartGame <$) <$> button "Start Game"
     pure $
       leftmost [
-        StartGame <$ domEvent Click startGameButton,
+        startGame,
         Join <$> (updated $ value nameElement)
       ]
 
@@ -130,9 +130,8 @@ gameWidget gameView =
         dyn_ ((policyTiles . view #goodPolicyCount) <$> gameView)
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
       elId "div" "phase_dependent" $ text "phase_dependent"
-    (incPolicyButton, _) <- elAttr' "button" ("type" =: "button") (text "Inc")
-    pure $
-        IncreaseLiberalPolicyCount <$ domEvent Click incPolicyButton
+    incPolicy <- (fmap . fmap) (const IncreaseLiberalPolicyCount) (button "Inc")
+    pure incPolicy
 
 policyTiles :: DomBuilder t m => Int -> m ()
 policyTiles tileCount = for_ [1 .. tileCount] $
@@ -150,6 +149,11 @@ policyTiles tileCount = for_ [1 .. tileCount] $
       )
     )
     blank
+
+button :: DomBuilder t m => Text -> m (Event t ())
+button label = do
+  (reference, _) <- el' "button" (text label)
+  pure (domEvent Click reference)
 
 elId :: DomBuilder t m => Text -> Text -> m a -> m a
 elId elementTag i child = snd <$> elId' elementTag i child

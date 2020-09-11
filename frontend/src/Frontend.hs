@@ -56,61 +56,13 @@ frontend =
           application baseUri
     }
 
-application ::
-  forall t m js.
-  (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m, Prerender js t m) =>
-  Maybe Text -> m ()
-application baseUri =
-  mdo
-    stateFromServer :: Event t StateFromServer <-
-      fmap (mapMaybe A.decodeStrict') $
-      fmap switchDyn $
-      prerender
-        (pure never)
-        (case webSocketUri baseUri of
-          Left _ -> pure never
-          Right uri ->
-            fmap (view webSocket_recv) $
-            webSocket (render uri)
-              (def & webSocketConfig_send .~ (((: []) . A.encode) <$> inputFromClient))
-        )
-    let
-      widgetInitial :: m (Event t InputFromClient)
-      widgetInitial =
-        (fmap . fmap) LobbyInput $
-        (lobbyWidget =<<) $
-        holdDyn lobbyViewInitial $
-        mapMaybe
-          (\case
-            LobbyFromServer lobbyFromServer -> Just lobbyFromServer
-            _ -> Nothing
-          ) $
-        stateFromServer
-    widgetDynamic :: Event t (m (Event t InputFromClient)) <-
-      fmap updated $
-      (fmap . fmap)
-        (\case
-          LobbyFromServerTag :=> lobbyFromServer ->
-            (fmap . fmap) LobbyInput (lobbyWidget lobbyFromServer)
-          GameFromServerTag :=> gameFromServer ->
-            (fmap . fmap) GameInput (gameWidget gameFromServer)
-        ) $
-      (stateFromServerDyn =<<) $
-      holdDyn (LobbyFromServer lobbyViewInitial) $
-      stateFromServer
-    inputFromClient :: Event t InputFromClient <-
-      switchDyn <$>
-      widgetHold
-        widgetInitial
-        widgetDynamic
-    pure ()
-
 lobbyWidget ::
   (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m) =>
   Dynamic t LobbyView -> m (Event t LobbyInput)
 lobbyWidget lobbyView =
   do
-    _ <- el "ul" $ simpleList (view #playerNames <$> lobbyView) (\m -> el "li" $ dynText m)
+    _ <- elId "div" "player_list_lobby" $
+      simpleList (view #playerNames <$> lobbyView) (\m -> el "div" $ dynText m)
     nameElement <- inputElement $ def
     startGame <- (StartGame <$) <$> button "Start Game"
     pure $
@@ -181,6 +133,55 @@ imgStyle' ::
   Text -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 imgStyle' style child =
   elAttr' "img" ("src" =: static @source <> "style" =: style) child
+
+application ::
+  forall t m js.
+  (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m, Prerender js t m) =>
+  Maybe Text -> m ()
+application baseUri =
+  mdo
+    stateFromServer :: Event t StateFromServer <-
+      fmap (mapMaybe A.decodeStrict') $
+      fmap switchDyn $
+      prerender
+        (pure never)
+        (case webSocketUri baseUri of
+          Left _ -> pure never
+          Right uri ->
+            fmap (view webSocket_recv) $
+            webSocket (render uri)
+              (def & webSocketConfig_send .~ (((: []) . A.encode) <$> inputFromClient))
+        )
+    let
+      widgetInitial :: m (Event t InputFromClient)
+      widgetInitial =
+        (fmap . fmap) LobbyInput $
+        (lobbyWidget =<<) $
+        holdDyn lobbyViewInitial $
+        mapMaybe
+          (\case
+            LobbyFromServer lobbyFromServer -> Just lobbyFromServer
+            _ -> Nothing
+          ) $
+        stateFromServer
+    widgetDynamic :: Event t (m (Event t InputFromClient)) <-
+      fmap updated $
+      (fmap . fmap)
+        (\case
+          LobbyFromServerTag :=> lobbyFromServer ->
+            (fmap . fmap) LobbyInput (lobbyWidget lobbyFromServer)
+          GameFromServerTag :=> gameFromServer ->
+            (fmap . fmap) GameInput (gameWidget gameFromServer)
+        ) $
+      (stateFromServerDyn =<<) $
+      holdDyn (LobbyFromServer lobbyViewInitial) $
+      stateFromServer
+    inputFromClient :: Event t InputFromClient <-
+      switchDyn <$>
+      widgetHold
+        widgetInitial
+        widgetDynamic
+    pure ()
 
 webSocketUri :: Maybe Text -> Either (Maybe Text) URI
 webSocketUri r =

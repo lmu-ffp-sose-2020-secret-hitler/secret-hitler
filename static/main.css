@@ -57,12 +57,14 @@ img {
     justify-self: stretch;
     align-self: stretch;
 }
-
-#player_list>div:nth-child(odd) {
-    background: #eee;
+#player_list_lobby {
+    width: 10em;
 }
-#player_list>div:nth-child(even) {
+#player_list>div:nth-child(odd), #player_list_lobby>div:nth-child(odd) {
     background: #ddd;
+}
+#player_list>div:nth-child(even), #player_list_lobby>div:nth-child(even) {
+    background: #eee;
 }
 #player_list img {
     height: 1.5em;

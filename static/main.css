@@ -53,3 +53,11 @@ img {
 #chancellor_icon {
     margin-right: .4em;
 }
+#player_list.select>div {
+    cursor: pointer;
+}
+#player_list.select>div:hover {
+    background: #444;
+    color: white;
+    padding-left: .8em;
+}

@@ -74,15 +74,18 @@ img {
 
 #phase_dependent {
     margin-top: var(--gap_size);
-    display: grid;
-    grid-template-rows: 1fr;
-    grid-template-columns: 1fr;
-    justify-items: center;
+}
+#phase_dependent>div {
+    display: flex;
+    flex-direction: row;
 }
 
-#ballots {
-    display: grid;
-    grid-template-rows: 1fr;
-    grid-template-columns: repeat(2, calc(var(--phase_dependent_height) * 941 / 648));
-    grid-gap: var(--gap_size);
+#vote_phase>img {
+    width: calc(var(--phase_dependent_height) * 941 / 648);
+    cursor: pointer;
+}
+
+#policy_phase>img {
+    width: calc(var(--phase_dependent_height) * 439 / 671);
+    cursor: pointer;
 }

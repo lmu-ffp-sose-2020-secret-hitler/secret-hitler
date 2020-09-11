@@ -2,10 +2,10 @@
     display: grid;
     max-width: 100%;
     grid-template-rows: repeat(2, auto);
-    grid-template-columns: 3972fr 684fr auto;
+    grid-template-columns: 684fr 3972fr 684fr;
     grid-template-areas:
-        "board_fascist . phase_dependent"
-        "board_liberal discard_pile phase_dependent";
+        "player_list board_fascist phase_dependent"
+        "draw_pile board_liberal discard_pile";
     justify-items: center;
     align-items: center;
     grid-gap: 8px;
@@ -31,4 +31,17 @@ img {
         586fr 463fr 122fr 462fr 122fr 457fr 121fr 463fr 121fr 465fr 590fr;
     justify-items: center;
     align-items: center;
+}
+
+#player_list {
+    grid-area: player_list;
+    justify-self: stretch;
+    align-self: stretch;
+}
+
+#player_list>div:nth-child(odd) {
+    background: #eee;
+}
+#player_list>div:nth-child(even) {
+    background: #ddd;
 }

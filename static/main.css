@@ -1,6 +1,18 @@
-#board {
+:root {
+    --phase_dependent_height: 20vh;
+    --gap_size: 8px;
+}
+
+body {
     display: grid;
-    max-width: 100%;
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr;
+    justify-items: center;
+}
+
+#phase_independent {
+    display: grid;
+    max-width: calc((100vh - var(--phase_dependent_height) - 3 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
     grid-template-rows: repeat(2, auto);
     grid-template-columns: 684fr 3972fr 684fr;
     grid-template-areas:
@@ -8,7 +20,7 @@
         "draw_pile board_liberal discard_pile";
     justify-items: center;
     align-items: center;
-    grid-gap: 8px;
+    gap: var(--gap_size);
 }
 
 #identity {
@@ -61,13 +73,16 @@ img {
 }
 
 #phase_dependent {
-    margin-top: 8px;
+    margin-top: var(--gap_size);
+    display: grid;
+    grid-template-rows: 1fr;
+    grid-template-columns: 1fr;
+    justify-items: center;
 }
 
 #ballots {
-    max-height: 100%;
     display: grid;
-    grid-template-rows: 100px;
-    grid-template-columns: repeat(2, 145px);
-    grid-gap: 8px;
+    grid-template-rows: 1fr;
+    grid-template-columns: repeat(2, calc(var(--phase_dependent_height) * 941 / 648));
+    grid-gap: var(--gap_size);
 }

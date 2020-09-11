@@ -12,7 +12,7 @@ import Data.Generics.Labels ()
 import Data.List (minimumBy)
 import Data.IntMap.Lazy (IntMap)
 import qualified Data.IntMap.Lazy as IntMap
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid (Sum (Sum))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -268,15 +268,31 @@ withGameEvent :: GameEvent -> Game -> (Game, GameEvent)
 withGameEvent = flip (,)
 
 nominateChancellor :: Int -> Game -> (Game, GameEvent)
-nominateChancellor chancellorId gameOld@(Game {
+nominateChancellor chancellorCandidateId gameOld@(Game {
   phase = NominateChancellorPhase { previousGovernment }
 }) =
-  withGameEvent ChancellorNominated $
-  gameOld
-    & (#players . traversed . #vote) .~ Nothing
-    & #phase .~ VotePhase { chancellorCandidateId = chancellorId, previousGovernment }
+  if isEligible chancellorCandidateId previousGovernment $ getAlivePlayers gameOld
+  then
+    withGameEvent ChancellorNominated $
+    gameOld
+      & #players . traversed . #vote .~ Nothing
+      & #phase .~ VotePhase { chancellorCandidateId, previousGovernment }
+  else
+    (gameOld, Error $ "Player " <> Text.pack (show chancellorCandidateId) <> " is not eligible")
 nominateChancellor _playerId gameOld =
   (gameOld, Error "Cannot nominate a chancellor outside of NominateChancellorPhase")
+
+isEligible :: Int -> Maybe Government -> IntMap Player -> Bool
+isEligible chancellorCandidateId previousGovernment alivePlayers =
+  if isNothing $ IntMap.lookup chancellorCandidateId alivePlayers
+  then False
+  else
+    case previousGovernment of
+      Nothing -> True
+      Just Government { presidentId, chancellorId } ->
+        if IntMap.size alivePlayers <= 5
+        then chancellorCandidateId /= chancellorId
+        else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
 
 placeVote :: Int -> Vote -> Game -> (Game, GameEvent)
 placeVote actorId vote gameOld@(Game {

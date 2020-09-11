@@ -27,7 +27,7 @@ instance ToJSON LobbyView where
 instance FromJSON LobbyView
 
 data GameView = GameView {
-  goodPolicies :: Int
+  goodPolicyCount :: Int
 } deriving stock (Generic)
 instance ToJSON GameView where
   toEncoding = genericToEncoding defaultOptions

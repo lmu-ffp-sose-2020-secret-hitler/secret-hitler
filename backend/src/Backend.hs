@@ -113,8 +113,8 @@ lobbyView (Lobby {players}) = LobbyView {
 }
 
 gameView :: Game -> GameView
-gameView (Game {goodPolicies}) = GameView {
-  goodPolicies
+gameView (Game {goodPolicyCount}) = GameView {
+  goodPolicyCount
 }
 
 talk :: Int -> WS.Connection -> MVar ServerState -> IO ()
@@ -157,4 +157,4 @@ answerGameToServer _id _payload stateOld = do
   return stateOld
 
 updateGame :: Int -> GameInput -> Game -> Game
-updateGame _id IncreaseLiberalPolicyCount = #goodPolicies %~ (+1)
+updateGame _id IncreaseLiberalPolicyCount = #goodPolicyCount %~ (+1)

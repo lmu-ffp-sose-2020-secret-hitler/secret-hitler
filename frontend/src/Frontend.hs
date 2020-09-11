@@ -127,7 +127,7 @@ gameWidget gameView =
       imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
       imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
       elId "div" "board_liberal" $
-        dyn_ ((policyTiles . view #goodPolicies) <$> gameView)
+        dyn_ ((policyTiles . view #goodPolicyCount) <$> gameView)
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
       elId "div" "phase_dependent" $ text "phase_dependent"
     (incPolicyButton, _) <- elAttr' "button" ("type" =: "button") (text "Inc")

@@ -97,8 +97,8 @@ data Game = Game {
   players :: IntMap Player,
   -- The cardPile contains the drawPile and the currentHand
   cardPile :: [Policy],
-  goodPolicies :: Int,
-  evilPolicies :: Int,
+  goodPolicyCount :: Int,
+  evilPolicyCount :: Int,
   president :: Int,
   regularPresident :: Int,
   electionTracker :: Int
@@ -129,13 +129,17 @@ currentHandSize (Game { phase }) = case phase of
   ChancellorDiscardPolicyPhase {} -> 2
   _ -> 0
 
+policyCount :: Policy -> ASetter Game Game Int Int
+policyCount GoodPolicy = #goodPolicyCount
+policyCount EvilPolicy = #evilPolicyCount
+
 newGame :: IntMap Player -> [Policy] -> Game
 newGame players drawPile = Game {
   phase = NominateChancellorPhase $ NominateChancellorPhasePayload Nothing,
   players,
   cardPile = drawPile,
-  evilPolicies = 0,
-  goodPolicies = 0,
+  evilPolicyCount = 0,
+  goodPolicyCount = 0,
   president = 0,
   regularPresident = 0,
   electionTracker = 0
@@ -341,15 +345,9 @@ discardPolicy policyIndex gameOld =
 
 enactTopPolicy :: Game -> Game
 enactTopPolicy gameOld@(Game { cardPile = policy : cardPileTail }) =
-  over (policyCounter policy) (+1) $
+  over (policyCount policy) (+1) $
   set #cardPile cardPileTail $
   set #electionTracker 0 $
   gameOld
-  where
-    policyCounter :: Policy -> ASetter Game Game Int Int
-    policyCounter policy =
-      case policy of
-        GoodPolicy -> #goodPolicies
-        EvilPolicy -> #evilPolicies
 enactTopPolicy _gameOld =
   error "Cannot enact top policy from empty card pile"

@@ -62,6 +62,7 @@ application stateMVar pending = do
             stateNew = stateOld
               & #connections . at id .~ Just connection
               & #gameState .~ LobbyState lobbyNew
+        putStrLn $ "Establishing connection to client " ++ show id
         broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
         return (stateNew, Just (id, connection))
       _ -> do
@@ -78,9 +79,11 @@ removeClient :: Int -> MVar ServerState -> IO ()
 removeClient id stateMVar = do
   putStrLn $ "Client " ++ show id ++ " disconnected"
   modifyMVar_ stateMVar $ \stateOld -> do
-    return $ stateOld
-      & #connections . at id .~ Nothing
-      & #gameState %~ removeClientFromLobby id
+    let stateNew = stateOld
+          & #connections . at id .~ Nothing
+          & #gameState %~ removeClientFromLobby id
+    broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
+    return stateNew
 
 removeClientFromLobby :: Int -> GameState -> GameState
 removeClientFromLobby id (LobbyState lobby) =
@@ -106,6 +109,7 @@ lobbyMessage (Lobby {players}) = LobbyFromServer $ LobbyView $ fmap (view #name)
 
 talk :: Int -> WS.Connection -> MVar ServerState -> IO ()
 talk id connection stateMVar = do
+  putStrLn $ "Client " ++ show id ++ " connected"
   forever $ do
     messageMaybe <- Aeson.decodeStrict' <$> WS.receiveData connection
     case messageMaybe of

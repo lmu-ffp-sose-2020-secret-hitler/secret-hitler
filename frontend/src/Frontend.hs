@@ -123,21 +123,28 @@ gameWidget ::
   (PostBuild t m, DomBuilder t m) => Dynamic t GameView ->  m (Event t GameInput)
 gameWidget gameView =
   do
-    elId "div" "board" $ do
+    elId "div" "phase_independent" $ do
+      elId "div" "player_list" blank
+      imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
       imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
+      elId "div" "board_fascist" $
+        dyn_ ((policyTiles @"policy_fascist.png" . view #goodPolicyCount) <$> gameView)
       imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
       elId "div" "board_liberal" $
-        dyn_ ((policyTiles . view #goodPolicyCount) <$> gameView)
+        dyn_ ((policyTiles @"policy_liberal.png" . view #goodPolicyCount) <$> gameView)
+      elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-      elId "div" "phase_dependent" $ text "phase_dependent"
+    elId "div" "phase_dependent" $ text "phase_dependent"
     incPolicy <- (fmap . fmap) (const IncreaseLiberalPolicyCount) (button "Inc")
     pure incPolicy
 
-policyTiles :: DomBuilder t m => Int -> m ()
+policyTiles ::
+  forall (source :: Symbol) t m.
+  (DomBuilder t m, StaticFile source) => Int -> m ()
 policyTiles tileCount = for_ [1 .. tileCount] $
   \i ->
   imgStyle
-    @"policy_liberal.png"
+    @source
     (
       toStrict $
       toLazyText $
@@ -159,13 +166,13 @@ elId :: DomBuilder t m => Text -> Text -> m a -> m a
 elId elementTag i child = snd <$> elId' elementTag i child
 
 elId' ::
-  DomBuilder t m => Text -> Text -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
+  DomBuilder t m =>
+  Text -> Text -> m a -> m (Element EventResult (DomBuilderSpace m) t, a)
 elId' elementTag i = elAttr' elementTag ("id" =: i)
 
 imgStyle ::
   forall (source :: Symbol) t m a.
-  (DomBuilder t m, StaticFile source) =>
-  Text -> m a -> m a
+  (DomBuilder t m, StaticFile source) => Text -> m a -> m a
 imgStyle style child = snd <$> imgStyle' @source style child
 
 imgStyle' ::

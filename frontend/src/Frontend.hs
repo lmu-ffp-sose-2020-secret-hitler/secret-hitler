@@ -5,6 +5,7 @@
 
 module Frontend where
 
+import Common.GameMessages
 import Data.Foldable (for_)
 import Control.Monad.Fix (MonadFix)
 import GHC.TypeLits (Symbol)
@@ -72,7 +73,7 @@ lobbyWidget lobbyView =
       ]
 
 gameWidget ::
-  (PostBuild t m, DomBuilder t m) => Dynamic t GameView ->  m (Event t GameInput)
+  (PostBuild t m, DomBuilder t m) => Dynamic t GameView ->  m (Event t GameAction)
 gameWidget gameView =
   do
     elId "div" "phase_independent" $ do
@@ -87,7 +88,7 @@ gameWidget gameView =
       elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
     elId "div" "phase_dependent" $ text "phase_dependent"
-    incPolicy <- (fmap . fmap) (const IncreaseLiberalPolicyCount) (button "Inc")
+    incPolicy <- (fmap . fmap) (const StopPeekingPolicies) (button "Inc")
     pure incPolicy
 
 policyTiles ::

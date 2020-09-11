@@ -2,6 +2,7 @@
 
 module Common.MessageTypes where
 
+import Common.GameMessages (GameView, GameAction)
 import Data.Text (Text)
 import Data.Aeson as A
 import GHC.Generics (Generic)
@@ -26,20 +27,13 @@ instance ToJSON LobbyView where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON LobbyView
 
-data GameView = GameView {
-  goodPolicyCount :: Int
-} deriving stock (Generic)
-instance ToJSON GameView where
-  toEncoding = genericToEncoding defaultOptions
-instance FromJSON GameView
-
 lobbyViewInitial :: LobbyView
 lobbyViewInitial = LobbyView []
 
 data InputFromClient =
   LobbyInput LobbyInput |
-  GameInput GameInput
-  deriving stock (Show, Generic)
+  GameInput GameAction
+  deriving stock (Generic)
 instance ToJSON InputFromClient where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON InputFromClient
@@ -51,13 +45,6 @@ data LobbyInput =
 instance ToJSON LobbyInput where
   toEncoding = genericToEncoding defaultOptions
 instance FromJSON LobbyInput
-
-data GameInput =
-  IncreaseLiberalPolicyCount
-  deriving stock (Show, Generic)
-instance ToJSON GameInput where
-  toEncoding = genericToEncoding defaultOptions
-instance FromJSON GameInput
 
 data StateFromServerTag a where
   LobbyFromServerTag :: StateFromServerTag LobbyView

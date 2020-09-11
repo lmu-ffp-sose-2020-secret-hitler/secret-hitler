@@ -1,24 +1,36 @@
 module Backend where
 
+import Common.GameMessages (
+    GameAction (..),
+    GameView (..),
+    PlayerView(..),
+  )
 import Common.MessageTypes
 import Common.Route
 import Control.Concurrent
 import Control.Exception (SomeException, catch, finally)
 import Control.Lens
 import Control.Monad
-import Data.Foldable (for_)
 import qualified Data.Aeson as Aeson
+import Data.ByteString.Lazy (toStrict)
 import Data.Dependent.Sum (DSum (..))
+import Data.Foldable (for_)
 import Data.Functor.Identity (Identity (Identity))
 import Data.IntMap.Strict (IntMap)
-import Data.Maybe (fromMaybe)
 import qualified Data.IntMap.Strict as IntMap
-import Game
+import Data.Maybe (fromMaybe)
+import qualified Data.Text as Text
+import Data.Text.Encoding (decodeUtf8)
+import qualified Data.Text.IO as Text
 import GHC.Generics (Generic)
-import Lobby
+import Game (Game (..))
+import qualified Game
+import Lobby (Lobby (..))
+import qualified Lobby
 import qualified Network.WebSockets as WS
 import Network.WebSockets.Snap (runWebSocketsSnap)
 import Obelisk.Backend (Backend (Backend, _backend_run, _backend_routeEncoder))
+import Random (runRandomIO)
 
 backend :: Backend BackendRoute FrontendRoute
 backend = Backend
@@ -113,9 +125,42 @@ lobbyView (Lobby {players}) = LobbyView {
 }
 
 gameView :: Game -> GameView
-gameView (Game {goodPolicyCount}) = GameView {
-  goodPolicyCount
-}
+gameView game@(Game {
+  goodPolicyCount,
+  evilPolicyCount,
+  presidentId,
+  electionTracker
+}) =
+  let
+    players = IntMap.map playerView $ game ^. #players
+    currentHand = Game.currentHand game
+  in
+  GameView {
+    players,
+    currentHand,
+    goodPolicyCount,
+    evilPolicyCount,
+    presidentId,
+    electionTracker
+  }
+
+playerView :: Game.Player -> PlayerView
+playerView (Game.Player {
+  name,
+  turnOrder,
+  alive
+}) =
+  let
+    role = Nothing
+    vote = Nothing
+  in
+  PlayerView {
+    name,
+    turnOrder,
+    role,
+    vote,
+    alive
+  }
 
 talk :: Int -> WS.Connection -> MVar ServerState -> IO ()
 talk id connection stateMVar = do
@@ -125,7 +170,8 @@ talk id connection stateMVar = do
     case messageMaybe of
       Nothing -> putStrLn $ "Could not decode message from client " ++ show id
       Just message -> do
-        putStrLn $ "Received message from client " ++ show id ++ ": " ++ show message
+        Text.putStrLn $ "Received message from client " <> Text.pack (show id) <>
+          ": " <> (decodeUtf8 $ toStrict $ Aeson.encode message)
         case message of
           LobbyInput payload -> modifyMVar_ stateMVar (answerLobbyToServer id payload)
           GameInput payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
@@ -146,15 +192,12 @@ answerLobbyToServer _id _payload stateOld = do
   putStrLn "There is currently no active Lobby"
   return stateOld
 
-answerGameToServer :: Int -> GameInput -> ServerState -> IO (ServerState)
+answerGameToServer :: Int -> GameAction -> ServerState -> IO (ServerState)
 answerGameToServer id payload stateOld@ServerState {gameState=GameState gameOld} = do
-  let gameNew = updateGame id payload gameOld
-      stateNew = stateOld & #gameState .~ GameState gameNew
+  (gameNew, _) <- runRandomIO $ Game.updateChecked id payload gameOld
+  let stateNew = stateOld & #gameState .~ GameState gameNew
   broadcast stateNew -- to-do. Are we fine with doing network IO while holding the mutex?
   return stateNew
 answerGameToServer _id _payload stateOld = do
   putStrLn "There is currently no Game in progress"
   return stateOld
-
-updateGame :: Int -> GameInput -> Game -> Game
-updateGame _id IncreaseLiberalPolicyCount = #goodPolicyCount %~ (+1)

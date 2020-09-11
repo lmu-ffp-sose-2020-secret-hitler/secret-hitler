@@ -74,13 +74,13 @@ data GamePhase =
   } |
   VotePhase {
     governmentPrevious :: Maybe Government,
-    chancellorCandidate :: Int
+    chancellorCandidateId :: Int
   } |
   PresidentDiscardPolicyPhase {
-    chancellor :: Int
+    chancellorId :: Int
   } |
   ChancellorDiscardPolicyPhase {
-    chancellor :: Int
+    chancellorId :: Int
   }
   deriving stock (Show)
 
@@ -93,14 +93,14 @@ data Game = Game {
   cardPile :: [Policy],
   goodPolicyCount :: Int,
   evilPolicyCount :: Int,
-  president :: Int,
-  regularPresident :: Int,
+  presidentId :: Int,
+  regularPresidentId :: Int,
   electionTracker :: Int
 } deriving stock (Show, Generic)
 
 getPresident :: Game -> Player
 getPresident game =
-  let presidentIdOld = game ^. #regularPresident in
+  let presidentIdOld = game ^. #regularPresidentId in
   fromMaybe
     (error "president is not a player")
     (game ^. #players . at presidentIdOld)
@@ -134,8 +134,8 @@ newGame players drawPile = Game {
   cardPile = drawPile,
   evilPolicyCount = 0,
   goodPolicyCount = 0,
-  president = 0,
-  regularPresident = 0,
+  presidentId = 0,
+  regularPresidentId = 0,
   electionTracker = 0
 }
 
@@ -218,10 +218,10 @@ updateChecked event@(GameAction actorId _) game
   isPlayerAllowedToAct :: Int -> Game -> Bool
   isPlayerAllowedToAct actorId game@(Game { phase }) =
     case phase of
-      NominateChancellorPhase {} -> actorId == game ^. #president
+      NominateChancellorPhase {} -> actorId == game ^. #presidentId
       VotePhase {} -> True
-      PresidentDiscardPolicyPhase {} -> actorId == game ^. #president
-      ChancellorDiscardPolicyPhase { chancellor } -> actorId == chancellor
+      PresidentDiscardPolicyPhase {} -> actorId == game ^. #presidentId
+      ChancellorDiscardPolicyPhase { chancellorId } -> actorId == chancellorId
 
 update :: PlayerAction -> Game -> (Game, GameEvent)
 update (GameAction actorId userInput) =
@@ -241,7 +241,7 @@ nominateChancellor playerId gameOld@(Game {
   withGameEvent ChancellorNominated $
   set (#players . traversed . #vote) Nothing $
   set #phase (VotePhase {
-    chancellorCandidate = playerId,
+    chancellorCandidateId = playerId,
     governmentPrevious = governmentPrevious
   }) $
   gameOld
@@ -252,7 +252,7 @@ placeVote :: Int -> Vote -> Game -> (Game, GameEvent)
 placeVote actorId vote gameOld@(Game {
   phase = VotePhase {
     governmentPrevious,
-    chancellorCandidate
+    chancellorCandidateId
   }
 }) =
   let gameNew = set (#players . ix actorId . #vote) (Just vote) gameOld in
@@ -275,7 +275,7 @@ placeVote actorId vote gameOld@(Game {
     succeedVote :: Game -> Game
     succeedVote =
       set #phase (PresidentDiscardPolicyPhase {
-          chancellor = chancellorCandidate
+          chancellorId = chancellorCandidateId
       })
     failVote :: Game -> Game
     failVote =
@@ -299,8 +299,8 @@ nominateNextRegularPresident :: Game -> Game
 nominateNextRegularPresident gameOld =
   let presidentIdNew = nextRegularPresidentId gameOld in
   gameOld
-    & #regularPresident .~ presidentIdNew
-    & #president .~ presidentIdNew
+    & #regularPresidentId .~ presidentIdNew
+    & #presidentId .~ presidentIdNew
   where
     nextRegularPresidentId :: Game -> Int
     nextRegularPresidentId game =
@@ -320,10 +320,10 @@ discardPolicy policyIndex gameOld =
     Left error -> (gameOld, Error $ error)
     Right gameNew@(Game { phase }) ->
       case phase of
-        PresidentDiscardPolicyPhase { chancellor } ->
+        PresidentDiscardPolicyPhase { chancellorId } ->
           withGameEvent PresidentDiscardedPolicy $
           set #phase (ChancellorDiscardPolicyPhase {
-            chancellor = chancellor
+            chancellorId
           }) $
           gameNew
         ChancellorDiscardPolicyPhase {} ->

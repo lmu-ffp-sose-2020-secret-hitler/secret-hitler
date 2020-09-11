@@ -45,3 +45,11 @@ img {
 #player_list>div:nth-child(even) {
     background: #ddd;
 }
+#player_list img {
+    height: 1.5em;
+    float: right;
+    cursor: help;
+}
+#chancellor_icon {
+    margin-right: .4em;
+}

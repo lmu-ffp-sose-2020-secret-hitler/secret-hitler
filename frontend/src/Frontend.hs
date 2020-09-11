@@ -113,23 +113,26 @@ lobbyWidget lobbyView =
     _ <- el "ul" $ simpleList (view #playerNames <$> lobbyView) (\m -> el "li" $ dynText m)
     nameElement <- inputElement $ def
     (startGameButton, _) <- elAttr' "button" ("type" =: "button") (text "Start Game")
-    -- Deprecated: "Use 'elAttr'' in combination with 'domEvent'
     pure $
       leftmost [
         StartGame <$ domEvent Click startGameButton,
         Join <$> (updated $ value nameElement)
       ]
 
-gameWidget :: DomBuilder t m => Dynamic t GameView ->  m (Event t GameInput)
-gameWidget _ =
+gameWidget ::
+  (PostBuild t m, DomBuilder t m) => Dynamic t GameView ->  m (Event t GameInput)
+gameWidget gameView =
   do
     elId "div" "board" $ do
       imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
       imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
-      elId "div" "board_liberal" $ policyTiles 3
+      elId "div" "board_liberal" $
+        dyn_ ((policyTiles . view #goodPolicies) <$> gameView)
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
       elId "div" "phase_dependent" $ text "phase_dependent"
-    pure never
+    (incPolicyButton, _) <- elAttr' "button" ("type" =: "button") (text "Inc")
+    pure $
+        IncreaseLiberalPolicyCount <$ domEvent Click incPolicyButton
 
 policyTiles :: DomBuilder t m => Int -> m ()
 policyTiles tileCount = for_ [1 .. tileCount] $

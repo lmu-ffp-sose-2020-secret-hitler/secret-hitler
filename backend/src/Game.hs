@@ -5,7 +5,9 @@ module Game where
 import Control.Applicative ((<|>))
 import Control.Lens hiding (element)
 import Data.Bool (bool)
+import Data.Function (on)
 import Data.Generics.Labels ()
+import Data.List (minimumBy)
 import Data.IntMap.Lazy (IntMap)
 import qualified Data.IntMap.Lazy as IntMap
 import Data.Maybe (fromMaybe)
@@ -128,16 +130,18 @@ policyCount GoodPolicy = #goodPolicyCount
 policyCount EvilPolicy = #evilPolicyCount
 
 newGame :: IntMap Player -> [Policy] -> Game
-newGame players drawPile = Game {
-  phase = NominateChancellorPhase Nothing,
-  players,
-  cardPile = drawPile,
-  evilPolicyCount = 0,
-  goodPolicyCount = 0,
-  presidentId = 0,
-  regularPresidentId = 0,
-  electionTracker = 0
-}
+newGame players drawPile =
+  let presidentId = fst $ (minimumBy (compare `on` turnOrder . snd)) $ IntMap.toList players in
+  Game {
+    phase = NominateChancellorPhase Nothing,
+    players,
+    cardPile = drawPile,
+    evilPolicyCount = 0,
+    goodPolicyCount = 0,
+    presidentId,
+    regularPresidentId = presidentId,
+    electionTracker = 0
+  }
 
 generateRandomGame :: IntMap Text -> IO Game
 generateRandomGame playerNames = do

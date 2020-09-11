@@ -239,25 +239,19 @@ withGameEvent :: GameEvent -> Game -> (Game, GameEvent)
 withGameEvent = flip (,)
 
 nominateChancellor :: Int -> Game -> (Game, GameEvent)
-nominateChancellor playerId gameOld@(Game {
+nominateChancellor chancellorId gameOld@(Game {
   phase = NominateChancellorPhase { governmentPrevious }
 }) =
   withGameEvent ChancellorNominated $
   set (#players . traversed . #vote) Nothing $
-  set #phase (VotePhase {
-    chancellorCandidateId = playerId,
-    governmentPrevious = governmentPrevious
-  }) $
+  set #phase (VotePhase { chancellorCandidateId = chancellorId, governmentPrevious }) $
   gameOld
 nominateChancellor _playerId gameOld =
   (gameOld, Error $ "Cannot nominate a chancellor outside of NominateChancellorPhase")
 
 placeVote :: Int -> Vote -> Game -> (Game, GameEvent)
 placeVote actorId vote gameOld@(Game {
-  phase = VotePhase {
-    governmentPrevious,
-    chancellorCandidateId
-  }
+  phase = VotePhase { governmentPrevious, chancellorCandidateId }
 }) =
   let gameNew = set (#players . ix actorId . #vote) (Just vote) gameOld in
   case voteResult gameNew of
@@ -278,14 +272,10 @@ placeVote actorId vote gameOld@(Game {
     voteToSum Yes = Sum 1
     succeedVote :: Game -> Game
     succeedVote =
-      set #phase (PresidentDiscardPolicyPhase {
-          chancellorId = chancellorCandidateId
-      })
+      set #phase (PresidentDiscardPolicyPhase { chancellorId = chancellorCandidateId })
     failVote :: Game -> Game
     failVote =
-      set #phase (NominateChancellorPhase {
-        governmentPrevious = governmentPrevious
-      })
+      set #phase (NominateChancellorPhase { governmentPrevious })
       .
       nominateNextRegularPresident
       .
@@ -326,9 +316,7 @@ discardPolicy policyIndex gameOld =
       case phase of
         PresidentDiscardPolicyPhase { chancellorId } ->
           withGameEvent PresidentDiscardedPolicy $
-          set #phase (ChancellorDiscardPolicyPhase {
-            chancellorId
-          }) $
+          set #phase (ChancellorDiscardPolicyPhase { chancellorId }) $
           gameNew
         ChancellorDiscardPolicyPhase {} ->
           withGameEvent ChancellorDiscardedPolicy $

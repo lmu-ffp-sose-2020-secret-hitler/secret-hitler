@@ -66,8 +66,8 @@ data Policy =
   deriving stock (Show)
 
 data Government = Government {
-  president :: Int,
-  chancellor :: Int
+  presidentId :: Int,
+  chancellorId :: Int
 } deriving stock (Show)
 
 data GamePhase =
@@ -243,9 +243,9 @@ nominateChancellor chancellorId gameOld@(Game {
   phase = NominateChancellorPhase { governmentPrevious }
 }) =
   withGameEvent ChancellorNominated $
-  set (#players . traversed . #vote) Nothing $
-  set #phase (VotePhase { chancellorCandidateId = chancellorId, governmentPrevious }) $
   gameOld
+    & (#players . traversed . #vote) .~ Nothing
+    & #phase .~ VotePhase { chancellorCandidateId = chancellorId, governmentPrevious }
 nominateChancellor _playerId gameOld =
   (gameOld, Error $ "Cannot nominate a chancellor outside of NominateChancellorPhase")
 
@@ -253,17 +253,17 @@ placeVote :: Int -> Vote -> Game -> (Game, GameEvent)
 placeVote actorId vote gameOld@(Game {
   phase = VotePhase { governmentPrevious, chancellorCandidateId }
 }) =
-  let gameNew = set (#players . ix actorId . #vote) (Just vote) gameOld in
+  let gameNew = gameOld & (#players . ix actorId . #vote) .~ Just vote in
   case voteResult gameNew of
     Nothing -> (gameNew, VotePlaced)
     Just Yes -> (succeedVote gameNew, SucceedVote)
     Just No -> (failVote gameNew, FailVote)
   where
-    voteResult :: Game -> Maybe (Vote)
+    voteResult :: Game -> Maybe Vote
     voteResult game =
-      fmap (bool No Yes) $
-      fmap (> Sum 0) $
-      fmap (foldMap voteToSum) $
+      bool No Yes <$>
+      (> Sum 0) <$>
+      foldMap voteToSum <$>
       playerVoteResults game
     playerVoteResults :: Game -> Maybe (IntMap Vote)
     playerVoteResults game = traverse (view #vote) (getAlivePlayers game)
@@ -275,9 +275,7 @@ placeVote actorId vote gameOld@(Game {
       set #phase (PresidentDiscardPolicyPhase { chancellorId = chancellorCandidateId })
     failVote :: Game -> Game
     failVote =
-      set #phase (NominateChancellorPhase { governmentPrevious })
-      .
-      nominateNextRegularPresident
+      (nominateNextRegularPresident governmentPrevious)
       .
       advanceElectionTracker
 placeVote _actorId _vote gameOld =
@@ -286,13 +284,14 @@ placeVote _actorId _vote gameOld =
 advanceElectionTracker :: Game -> Game
 advanceElectionTracker game@(Game { electionTracker }) =
   if electionTracker < 2
-  then over #electionTracker (+1) game
+  then game & #electionTracker %~ (+1)
   else enactTopPolicy game
 
-nominateNextRegularPresident :: Game -> Game
-nominateNextRegularPresident gameOld =
+nominateNextRegularPresident :: Maybe Government -> Game -> Game
+nominateNextRegularPresident governmentPrevious gameOld =
   let presidentIdNew = nextRegularPresidentId gameOld in
   gameOld
+    & #phase .~ NominateChancellorPhase { governmentPrevious }
     & #regularPresidentId .~ presidentIdNew
     & #presidentId .~ presidentIdNew
   where
@@ -312,32 +311,39 @@ discardPolicy :: Int -> Game -> (Game, GameEvent)
 discardPolicy policyIndex gameOld =
   case removePolicy policyIndex gameOld of
     Left error -> (gameOld, Error $ error)
-    Right gameNew@(Game { phase }) ->
-      case phase of
-        PresidentDiscardPolicyPhase { chancellorId } ->
-          withGameEvent PresidentDiscardedPolicy $
-          set #phase (ChancellorDiscardPolicyPhase { chancellorId }) $
-          gameNew
-        ChancellorDiscardPolicyPhase {} ->
-          withGameEvent ChancellorDiscardedPolicy $
-          nominateNextRegularPresident $
-          enactTopPolicy $
-          gameNew
-        _ -> (gameOld, Error $ "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
+    Right gameNew -> updateGameAfterDiscard gameNew
   where
     removePolicy :: Int -> Game -> Either Text Game
     removePolicy policyIndex game =
       if 0 <= policyIndex && policyIndex < currentHandSize game
-      then Right $ over #cardPile (removeElement policyIndex) game
+      then Right $ game & #cardPile %~ removeElement policyIndex
       else Left "Cannot discard policy outside of current hand"
     removeElement :: Int -> [a] -> [a]
     removeElement i list = take i list ++ drop (i + 1) list
 
+    updateGameAfterDiscard :: Game -> (Game, GameEvent)
+    updateGameAfterDiscard game@(Game {
+      phase = PresidentDiscardPolicyPhase { chancellorId }
+    }) =
+      withGameEvent PresidentDiscardedPolicy $
+      game & #phase .~ ChancellorDiscardPolicyPhase { chancellorId }
+    updateGameAfterDiscard game@(Game {
+      phase = ChancellorDiscardPolicyPhase { chancellorId }
+    }) =
+      let presidentId = game ^. #presidentId
+          governmentPrevious = Just $ Government { presidentId, chancellorId } in
+      withGameEvent ChancellorDiscardedPolicy $
+      (nominateNextRegularPresident governmentPrevious) $
+      enactTopPolicy $
+      game
+    updateGameAfterDiscard _game =
+      (gameOld, Error "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
+
 enactTopPolicy :: Game -> Game
-enactTopPolicy gameOld@(Game { cardPile = policy : cardPileTail }) =
-  over (policyCount policy) (+1) $
-  set #cardPile cardPileTail $
-  set #electionTracker 0 $
-  gameOld
+enactTopPolicy game@(Game { cardPile = policy : cardPileTail }) =
+  game
+    & (policyCount policy) %~ (+1)
+    & #cardPile .~ cardPileTail
+    & #electionTracker .~ 0
 enactTopPolicy _gameOld =
   error "Cannot enact top policy from empty card pile"

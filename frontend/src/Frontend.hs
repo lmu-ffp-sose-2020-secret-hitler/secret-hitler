@@ -130,6 +130,7 @@ phaseDependentWidget ::
 phaseDependentWidget (GameView {phase, playerId, presidentId, currentHand}) =
   case phase of
     VotePhase {} -> votePhaseWidget
+    ExecutionPhase {} -> executionPhaseWidget
     NominateChancellorPhase {}
       | playerId == presidentId -> nominateChancellorPhaseWidget
     PresidentDiscardPolicyPhase {}
@@ -172,6 +173,11 @@ discardPolicyPhaseWidget currentHand makeGameAction =
           )
           blank
       )
+
+executionPhaseWidget :: DomBuilder t m => m (Event t GameAction)
+executionPhaseWidget = do
+  text "Please select a player to be executed."
+  return never
 
 nominateChancellorPhaseWidget :: DomBuilder t m => m (Event t GameAction)
 nominateChancellorPhaseWidget = do
@@ -277,6 +283,7 @@ playerList gameView =
       <$>
       (case phase of
         NominateChancellorPhase {} -> Just NominateChancellor
+        ExecutionPhase {} -> Just ExecutePlayer
         _ -> Nothing
       )    
 

@@ -4,21 +4,18 @@
 }
 
 body {
-    display: grid;
-    grid-template-rows: 1fr;
-    grid-template-columns: 1fr;
-    justify-items: center;
     font: 16px / 1.2 sans-serif;
 }
 
-#phase_independent {
+#board {
     display: grid;
     max-width: calc((100vh - var(--phase_dependent_height) - 3 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
-    grid-template-rows: repeat(2, auto);
+    grid-template-rows: repeat(3, auto);
     grid-template-columns: 684fr 3972fr 684fr;
     grid-template-areas:
         "player_list board_fascist identity"
-        "draw_pile board_liberal discard_pile";
+        "draw_pile board_liberal discard_pile"
+        "phase_dependent phase_dependent phase_dependent";
     justify-items: center;
     align-items: center;
     gap: var(--gap_size);
@@ -102,7 +99,7 @@ img {
 }
 
 #phase_dependent {
-    margin-top: var(--gap_size);
+    grid-area: phase_dependent;
 }
 #phase_dependent>div {
     display: flex;

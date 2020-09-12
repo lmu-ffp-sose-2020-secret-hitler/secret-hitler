@@ -11,7 +11,7 @@ import Control.Monad.Fix (MonadFix)
 import GHC.TypeLits (Symbol)
 import Data.List.NonEmpty
 import Data.List (sortOn)
-import Data.IntMap.Strict (elems)
+import qualified Data.IntMap.Strict as IM
 import Data.Bool (bool)
 import Control.Monad (void)
 import Data.Text (Text)
@@ -80,22 +80,8 @@ gameWidget ::
   Dynamic t GameView ->  m (Event t GameAction)
 gameWidget gameView =
   do
-    elId "div" "phase_independent" $ do
-      elId "div" "player_list" $ void $
-        simpleList
-          (
-            fmap (sortOn $ view #turnOrder) $
-            fmap elems $
-            fmap (view #players) $
-            gameView
-          )
-          (
-            \player ->
-            elDynClass
-              "div"
-              ((bool "dead" T.empty . view #alive) <$> player)
-              (dynText (view #name <$> player))
-          )
+    elId "div" "board" $ do
+      playerSelect :: Event t Int <- playerList gameView
       imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
       imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
       elId "div" "policies_fascist" $
@@ -115,9 +101,68 @@ gameWidget gameView =
           blank
       elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-    elId "div" "phase_dependent" $ text "phase_dependent"
+      elId "div" "phase_dependent" $
+        widgetHold_
+          blank
+          (
+            updated $
+            fmap
+              (\case
+                NominateChancellorPhase _ -> do
+                  text "Please nominate a chancellor by clicking their name."
+                  (dynText =<<) $ holdDyn T.empty $ fmap (toStrict . toLazyText . decimal) $ playerSelect
+                _ -> blank
+              ) $
+            fmap (view #phase) $
+            gameView
+          )
     incPolicy <- (fmap . fmap) (const StopPeekingPolicies) (button "Inc")
     pure incPolicy
+
+playerList ::
+  (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
+  Dynamic t GameView ->  m (Event t Int)
+playerList gameView =
+  elDynAttr
+    "div"
+    (
+      fmap
+        (\phase ->
+          "id" =: "player_list" <>
+          "class" =: case phase of
+            NominateChancellorPhase _ -> "select"
+            _ -> ""
+        ) $
+      fmap (view #phase) $
+      gameView
+    )
+    (
+      fmap switchDyn $
+      (fmap . fmap) leftmost $
+      simpleList
+        (
+          fmap (sortOn $ view $ _2 . #turnOrder) $
+          fmap IM.toList $
+          fmap (view #players) $
+          gameView
+        )
+        (
+          \idAndPlayer ->
+          do
+            let player = snd <$> idAndPlayer
+            (reference, _) <-
+              elDynClass'
+                "div"
+                ((bool "dead" T.empty . view #alive) <$> player)
+                (dynText (view #name <$> player))
+            (
+              pure $
+              switchDyn $
+              fmap (<$ domEvent Click reference) $
+              fmap fst $
+              idAndPlayer)
+        )
+    )
 
 gridArea :: Int -> Int -> Text
 gridArea x y =

@@ -103,7 +103,7 @@ gameWidget gameUpdate =
         blank
     elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-    phaseDependentAction <- elId "div" "phase_dependent" $
+    phaseDependentAction :: Event t GameAction <- elId "div" "phase_dependent" $
       -- fmap switchDyn $
       -- widgetHold
       --   nominateChancellorPhaseWidget
@@ -119,7 +119,8 @@ gameWidget gameUpdate =
           <$>
           gameView
         )
-    pure $ leftmost [playerSelect, phaseDependentAction]
+    -- display =<< (holdDyn StopPeekingPolicies phaseDependentAction)
+    pure $ leftmost [playerSelect, phaseDependentAction]--
   where
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
@@ -134,16 +135,25 @@ phaseDependentWidget (GameView {phase, playerId, presidentId, currentHand}) =
     VotePhase {} -> votePhaseWidget
     PresidentDiscardPolicyPhase {}
       | length currentHand >= 3 ->
-        discardPolicyPhaseWidget currentHand PresidentDiscardPolicy
+        discardPolicyPhaseWidget currentHand PresidentDiscardPolicy (pure never)
     ChancellorDiscardPolicyPhase {}
       | length currentHand >= 2 ->
         discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy
+          ((fmap . fmap) (const ProposeVeto) (button "I wish to veto this agenda"))
     PolicyPeekPhase {}
       | length currentHand >= 3 ->
         policyPeekPhaseWidget currentHand
     ExecutionPhase {}
       | playerId == presidentId -> executionPhaseWidget
-    _ -> blank *> pure never
+    PendingVetoPhase {}
+      | playerId == presidentId ->
+        fmap leftmost $
+        sequenceA $
+        [
+          ((fmap . fmap) (const AcceptVeto) (button "I agree to the veto")),
+          ((fmap . fmap) (const ProposeVeto) (button "nope"))
+        ]
+    _ -> pure never
 
 nominateChancellorPhaseWidget :: DomBuilder t m => m (Event t GameAction)
 nominateChancellorPhaseWidget = do
@@ -162,25 +172,31 @@ votePhaseWidget = do
       ]
 
 discardPolicyPhaseWidget ::
-  DomBuilder t m => [Policy] -> (Int -> GameAction) -> m (Event t GameAction)
-discardPolicyPhaseWidget currentHand makeGameAction =
+  DomBuilder t m => [Policy] -> (Int -> GameAction) -> m (Event t GameAction) -> m (Event t GameAction)
+discardPolicyPhaseWidget currentHand makeGameAction vetoWidget =
   elId "div" "policy_phase" $
-    (fmap . fmap) makeGameAction $
     fmap leftmost $
-    for
-      (zip [0..] currentHand)
-      (\(i, policy) ->
-        (fmap . fmap) (const i) $
-        fmap (domEvent Click) $
-        fmap fst $
-        elAttr'
-          "img"
-          ("src" =: case policy of
-            GoodPolicy -> static @"policy_liberal.png"
-            EvilPolicy -> static @"policy_fascist.png"
-          )
-          blank
-      )
+    sequenceA $
+    [
+      (fmap . fmap) makeGameAction $
+      fmap leftmost $
+      for
+        (zip [0..] currentHand)
+        (\(i, policy) ->
+          (fmap . fmap) (const i) $
+          fmap (domEvent Click) $
+          fmap fst $
+          elAttr'
+            "img"
+            ("src" =: case policy of
+              GoodPolicy -> static @"policy_liberal.png"
+              EvilPolicy -> static @"policy_fascist.png"
+            )
+            blank
+        )
+      ,
+      vetoWidget
+    ]
 
 policyPeekPhaseWidget :: DomBuilder t m => [Policy] -> m (Event t GameAction)
 policyPeekPhaseWidget currentHand =

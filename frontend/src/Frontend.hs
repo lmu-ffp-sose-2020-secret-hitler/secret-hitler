@@ -102,15 +102,13 @@ gameWidget gameView =
       elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
       elId "div" "phase_dependent" $
-        widgetHold_
-          blank
+        dyn_
           (
-            updated $
             fmap
               (\case
                 NominateChancellorPhase _ -> do
                   text "Please nominate a chancellor by clicking their name."
-                  (dynText =<<) $ holdDyn T.empty $ fmap (toStrict . toLazyText . decimal) $ playerSelect
+                  -- (dynText =<<) $ holdDyn T.empty $ fmap (toStrict . toLazyText . decimal) $ playerSelect
                 _ -> blank
               ) $
             fmap (view #phase) $

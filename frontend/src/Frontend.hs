@@ -120,18 +120,7 @@ playerList ::
   (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
   Dynamic t GameView ->  m (Event t GameAction)
 playerList gameView =
-  fmap
-    (attachDynWithMaybe
-      (\phase event ->
-        ($ event)
-        <$>
-        (case phase of
-          NominateChancellorPhase {} -> Just NominateChancellor
-          _ -> Nothing
-        )
-      )
-      (view #phase <$> gameView)
-    )$
+  fmap (attachDynWithMaybe wrapInGameAction (view #phase <$> gameView)) $
   fmap (gate $ current selectable) $
   elDynAttr
     "div"
@@ -159,6 +148,14 @@ playerList gameView =
         )
     )
   where
+    wrapInGameAction :: GamePhase -> Int -> Maybe GameAction
+    wrapInGameAction phase playerId =
+      ($ playerId)
+      <$>
+      (case phase of
+        NominateChancellorPhase {} -> Just NominateChancellor
+        _ -> Nothing
+      )
     selectable :: Dynamic t Bool
     selectable =
       (\(GameView {phase, playerId, presidentId}) ->

@@ -79,61 +79,63 @@ gameWidget ::
   (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
   Dynamic t GameView ->  m (Event t GameAction)
 gameWidget gameView =
-  do
-    elId "div" "board" $ do
-      playerSelect :: Event t Int <- playerList gameView
-      imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
-      imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
-      elId "div" "policies_fascist" $
-        dyn_ ((policyTiles @"policy_fascist.png" . view #evilPolicyCount) <$> gameView)
-      imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
-      elId "div" "policies_liberal" $
-        dyn_ ((policyTiles @"policy_liberal.png" . view #goodPolicyCount) <$> gameView)
-      elId "div" "election_tracker" $
-        elDynAttr
-          "img"
-          (
-            fmap
-              (\i -> "src" =: static @"circle.svg" <> "style" =: gridArea (2 * i) 2) $
-            fmap (view #electionTracker) $
-            gameView
-          )
-          blank
-      elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
-      imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-      elId "div" "phase_dependent" $
-        dyn_
-          (
-            fmap
-              (\case
-                NominateChancellorPhase _ -> do
-                  text "Please nominate a chancellor by clicking their name."
-                  -- (dynText =<<) $ holdDyn T.empty $ fmap (toStrict . toLazyText . decimal) $ playerSelect
-                _ -> blank
-              ) $
-            fmap (view #phase) $
-            gameView
-          )
-    incPolicy <- (fmap . fmap) (const StopPeekingPolicies) (button "Inc")
-    pure incPolicy
+  elId "div" "board" $ do
+    playerSelect :: Event t GameAction <- playerList gameView
+    imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
+    imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
+    elId "div" "policies_fascist" $
+      dyn_ ((policyTiles @"policy_fascist.png" . view #evilPolicyCount) <$> gameView)
+    imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
+    elId "div" "policies_liberal" $
+      dyn_ ((policyTiles @"policy_liberal.png" . view #goodPolicyCount) <$> gameView)
+    elId "div" "election_tracker" $
+      elDynAttr
+        "img"
+        (
+          fmap
+            (\i -> "src" =: static @"circle.svg" <> "style" =: gridArea (2 * i) 2) $
+          fmap (view #electionTracker) $
+          gameView
+        )
+        blank
+    elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
+    imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
+    elId "div" "phase_dependent" $
+      dyn_
+        (
+          fmap
+            (\case
+              NominateChancellorPhase _ -> do
+                text "Please nominate a chancellor by clicking their name."
+                -- (dynText =<<) $ holdDyn T.empty $ fmap (toStrict . toLazyText . decimal) $ playerSelect
+              _ -> blank
+            ) $
+          fmap (view #phase) $
+          gameView
+        )
+    pure playerSelect
 
 playerList ::
+  forall t m.
   (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
-  Dynamic t GameView ->  m (Event t Int)
+  Dynamic t GameView ->  m (Event t GameAction)
 playerList gameView =
+  fmap
+    (attachDynWithMaybe
+      (\phase event ->
+        ($ event)
+        <$>
+        (case phase of
+          NominateChancellorPhase {} -> Just NominateChancellor
+          _ -> Nothing
+        )
+      )
+      (view #phase <$> gameView)
+    )$
+  fmap (gate $ current selectable) $
   elDynAttr
     "div"
-    (
-      fmap
-        (\phase ->
-          "id" =: "player_list" <>
-          "class" =: case phase of
-            NominateChancellorPhase _ -> "select"
-            _ -> ""
-        ) $
-      fmap (view #phase) $
-      gameView
-    )
+    ((\s -> "id" =: "player_list" <> "class" =: bool "" "select" s) <$> selectable)
     (
       fmap switchDyn $
       (fmap . fmap) leftmost $
@@ -153,14 +155,27 @@ playerList gameView =
                 "div"
                 ((bool "dead" T.empty . view #alive) <$> player)
                 (dynText (view #name <$> player))
-            (
-              pure $
-              switchDyn $
-              fmap (<$ domEvent Click reference) $
-              fmap fst $
-              idAndPlayer)
+            pure $ tagDyn (fst <$> idAndPlayer) (domEvent Click reference)
         )
     )
+  where
+    selectable :: Dynamic t Bool
+    selectable =
+      (\(GameView {phase, playerId, presidentId}) ->
+        case phase of
+          NominateChancellorPhase {}
+            | playerId == presidentId -> True
+          _ -> False
+      )
+      <$>
+      gameView
+
+tagDyn :: Reflex t => Dynamic t a -> Event t b -> Event t a
+tagDyn = tag . current
+
+attachDynWithMaybe ::
+  Reflex t => (a -> b -> Maybe c) -> Dynamic t a -> Event t b -> Event t c 
+attachDynWithMaybe f = attachWithMaybe f . current
 
 gridArea :: Int -> Int -> Text
 gridArea x y =

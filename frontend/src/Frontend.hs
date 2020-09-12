@@ -166,7 +166,7 @@ discardPolicyPhaseWidget currentHand makeGameAction =
     (fmap . fmap) makeGameAction $
     fmap leftmost $
     for
-      (zip [1..] currentHand)
+      (zip [0..] currentHand)
       (\(i, policy) ->
         (fmap . fmap) (const i) $
         fmap (domEvent Click) $

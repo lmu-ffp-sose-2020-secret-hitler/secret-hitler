@@ -7,10 +7,10 @@ main = do
   -- print game
   -- run $ game
 
-run :: Game -> IO ()
-run gameOld = do
-  event <- readLn :: IO ClientEvent
-  let (gameNew, gameEvent) = updateChecked event gameOld
-  print gameNew
-  print gameEvent
-  run $ gameNew
+-- run :: Game -> IO ()
+-- run gameOld = do
+--   event <- readLn :: IO ClientEvent
+--   let (gameNew, gameEvent) = updateChecked event gameOld
+--   print gameNew
+--   print gameEvent
+--   run $ gameNew

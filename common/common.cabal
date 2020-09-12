@@ -11,10 +11,12 @@ library
     mtl,
     text,
     aeson,
-    dependent-sum
+    dependent-sum,
+    containers
   exposed-modules:
     Common.Route
     Common.MessageTypes
+    Common.GameMessages
   ghc-options: -Wall
   default-extensions:
     OverloadedLabels

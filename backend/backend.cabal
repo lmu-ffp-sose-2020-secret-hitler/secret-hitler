@@ -24,11 +24,14 @@ library
     websockets-snap,
     websockets,
     dependent-sum,
-    aeson
+    aeson,
+    mtl,
+    bytestring
   exposed-modules:
     Backend
     Game
     Lobby
+    Random
   ghc-options:
     -Weverything
     -Wno-implicit-prelude

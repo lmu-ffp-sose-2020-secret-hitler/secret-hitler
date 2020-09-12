@@ -4,7 +4,7 @@ module Random (
   withStdGen,
 ) where
 
-import Control.Monad.State (State, evalState, get, put)
+import Control.Monad.State.Strict (State, evalState, get, put)
 import System.Random (StdGen, newStdGen)
 
 newtype Random a = Random (State StdGen a)

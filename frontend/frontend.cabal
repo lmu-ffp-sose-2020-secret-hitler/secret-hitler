@@ -19,7 +19,8 @@ library
     generic-lens,
     lens,
     aeson,
-    dependent-sum
+    dependent-sum,
+    containers
   exposed-modules:
     Frontend
   ghc-options: -Wall

@@ -38,9 +38,13 @@ data Role =
   GoodRole |
   EvilRole |
   EvilLeaderRole
-  deriving stock (Generic)
+  deriving stock (Generic, Eq)
 instance FromJSON Role
 instance ToJSON Role
+
+roleAlignment :: Role -> Alignment
+roleAlignment GoodRole = Good
+roleAlignment _ = Evil
 
 data Alignment =
   Good |
@@ -48,10 +52,6 @@ data Alignment =
   deriving stock (Generic)
 instance FromJSON Alignment
 instance ToJSON Alignment
-
-alignment :: Role -> Alignment
-alignment GoodRole = Good
-alignment _ = Evil
 
 data GamePhase =
   NominateChancellorPhase {
@@ -98,6 +98,10 @@ data Policy =
 instance FromJSON Policy
 instance ToJSON Policy
 
+policyAlignment :: Policy -> Alignment
+policyAlignment GoodPolicy = Good
+policyAlignment EvilPolicy = Evil
+
 data GameAction =
   NominateChancellor Int |
   PlaceVote Bool |
@@ -116,14 +120,40 @@ data GameEvent =
   ChancellorNominated |
   VotePlaced |
   VoteSucceeded |
-  VoteFailed |
+  EvilLeaderElected |
+  VoteFailed (Maybe PolicyEnacted) |
   PresidentDiscardedPolicy |
-  ChancellorDiscardedPolicy |
+  ChancellorEnactedPolicy PolicyEnacted |
+  PresidentStoppedPeekingPolicies |
   PlayerKilled |
+  EvilLeaderKilled |
   VetoProposed |
-  VetoAccepted |
+  VetoAccepted (Maybe PolicyEnacted) |
   VetoRejected |
   Error Text
   deriving stock (Generic)
 instance FromJSON GameEvent
 instance ToJSON GameEvent
+
+eventWinner :: GameEvent -> Maybe Alignment
+eventWinner (EvilLeaderElected) = Just Evil
+eventWinner (VoteFailed policyEnacted) = policyEnactedWinner =<< policyEnacted
+eventWinner (ChancellorEnactedPolicy policyEnacted) = policyEnactedWinner policyEnacted
+eventWinner EvilLeaderKilled = Just Good
+eventWinner (VetoAccepted policyEnacted) = policyEnactedWinner =<< policyEnacted
+eventWinner _ = Nothing
+
+data PolicyEnacted =
+  PolicyEnacted Policy |
+  LastPolicyEnacted Policy
+  deriving stock (Generic)
+instance FromJSON PolicyEnacted
+instance ToJSON PolicyEnacted
+
+policyEnactedWinner :: PolicyEnacted -> Maybe Alignment
+policyEnactedWinner (LastPolicyEnacted policy) = Just (policyAlignment policy)
+policyEnactedWinner _ = Nothing
+
+enactedPolicy :: PolicyEnacted -> Policy
+enactedPolicy (PolicyEnacted policy) = policy
+enactedPolicy (LastPolicyEnacted policy) = policy

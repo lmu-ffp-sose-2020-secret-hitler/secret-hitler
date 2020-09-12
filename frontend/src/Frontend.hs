@@ -7,10 +7,11 @@ module Frontend where
 
 import Common.GameMessages
 import Data.Foldable (for_)
+import Data.Traversable (for)
 import Control.Monad.Fix (MonadFix)
 import Data.Maybe (fromMaybe)
 import GHC.TypeLits (Symbol)
-import Data.List.NonEmpty
+import Data.List.NonEmpty (nonEmpty)
 import Data.List (sortOn)
 import qualified Data.IntMap.Strict as IM
 import Data.Bool (bool)
@@ -126,11 +127,17 @@ gameWidget gameUpdate =
 phaseDependentWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>
   GameView -> m (Event t GameAction)
-phaseDependentWidget (GameView {phase, playerId, presidentId}) =
+phaseDependentWidget (GameView {phase, playerId, presidentId, currentHand}) =
   case phase of
     VotePhase {} -> votePhaseWidget
     NominateChancellorPhase {}
       | playerId == presidentId -> nominateChancellorPhaseWidget
+    PresidentDiscardPolicyPhase {}
+      | length currentHand >= 3 ->
+        discardPolicyPhaseWidget currentHand PresidentDiscardPolicy
+    ChancellorDiscardPolicyPhase {}
+      | length currentHand >= 2 ->
+        discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy
     _ -> blank *> pure never
 
 votePhaseWidget :: DomBuilder t m => m (Event t GameAction)
@@ -144,6 +151,27 @@ votePhaseWidget = do
         PlaceVote False <$ domEvent Click noButton
       ]
   return event
+
+discardPolicyPhaseWidget ::
+  DomBuilder t m => [Policy] -> (Int -> GameAction) -> m (Event t GameAction)
+discardPolicyPhaseWidget currentHand makeGameAction =
+  elId "div" "policy_phase" $
+    (fmap . fmap) makeGameAction $
+    fmap leftmost $
+    for
+      (zip [1..] currentHand)
+      (\(i, policy) ->
+        (fmap . fmap) (const i) $
+        fmap (domEvent Click) $
+        fmap fst $
+        elAttr'
+          "img"
+          ("src" =: case policy of
+            GoodPolicy -> static @"policy_liberal.png"
+            EvilPolicy -> static @"policy_fascist.png"
+          )
+          blank
+      )
 
 nominateChancellorPhaseWidget :: DomBuilder t m => m (Event t GameAction)
 nominateChancellorPhaseWidget = do

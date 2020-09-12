@@ -10,9 +10,12 @@ import Data.Foldable (for_)
 import Control.Monad.Fix (MonadFix)
 import GHC.TypeLits (Symbol)
 import Data.List.NonEmpty
--- import Control.Monad (void)
+import Data.List (sortOn)
+import Data.IntMap.Strict (elems)
+import Data.Bool (bool)
+import Control.Monad (void)
 import Data.Text (Text)
--- import qualified Data.Text as T
+import qualified Data.Text as T
 import qualified Data.Text.Encoding as T.E
 import Data.Text.Lazy.Builder.Int (decimal)
 import Data.Text.Lazy (toStrict)
@@ -62,8 +65,8 @@ lobbyWidget ::
   Dynamic t LobbyView -> m (Event t LobbyInput)
 lobbyWidget lobbyView =
   do
-    _ <- elId "div" "player_list_lobby" $
-      simpleList (view #playerNames <$> lobbyView) (\m -> el "div" $ dynText m)
+    elId "div" "player_list_lobby" $ void $
+      simpleList (view #playerNames <$> lobbyView) (el "div" . dynText)
     nameElement <- inputElement $ def
     startGame <- (StartGame <$) <$> button "Start Game"
     pure $
@@ -73,42 +76,71 @@ lobbyWidget lobbyView =
       ]
 
 gameWidget ::
-  (PostBuild t m, DomBuilder t m) => Dynamic t GameView ->  m (Event t GameAction)
+  (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
+  Dynamic t GameView ->  m (Event t GameAction)
 gameWidget gameView =
   do
     elId "div" "phase_independent" $ do
-      elId "div" "player_list" blank
+      elId "div" "player_list" $ void $
+        simpleList
+          (
+            fmap (sortOn $ view #turnOrder) $
+            fmap elems $
+            fmap (view #players) $
+            gameView
+          )
+          (
+            \player ->
+            elDynClass
+              "div"
+              ((bool "dead" T.empty . view #alive) <$> player)
+              (dynText (view #name <$> player))
+          )
       imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
       imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
-      elId "div" "board_fascist" $
-        dyn_ ((policyTiles @"policy_fascist.png" . view #goodPolicyCount) <$> gameView)
+      elId "div" "policies_fascist" $
+        dyn_ ((policyTiles @"policy_fascist.png" . view #evilPolicyCount) <$> gameView)
       imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
-      elId "div" "board_liberal" $
+      elId "div" "policies_liberal" $
         dyn_ ((policyTiles @"policy_liberal.png" . view #goodPolicyCount) <$> gameView)
+      elId "div" "election_tracker" $
+        elDynAttr
+          "img"
+          (
+            fmap
+              (\i -> "src" =: static @"circle.svg" <> "style" =: gridArea (2 * i) 2) $
+            fmap (view #electionTracker) $
+            gameView
+          )
+          blank
       elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
       imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
     elId "div" "phase_dependent" $ text "phase_dependent"
     incPolicy <- (fmap . fmap) (const StopPeekingPolicies) (button "Inc")
     pure incPolicy
 
+gridArea :: Int -> Int -> Text
+gridArea x y =
+  toStrict $
+  toLazyText $
+  (
+    fromText "grid-area:" <>
+    decimal y <>
+    fromText "/" <>
+    decimal x <>
+    fromText "/" <>
+    decimal (y + 1) <>
+    fromText "/" <>
+    decimal (x + 1)
+  )
+
 policyTiles ::
   forall (source :: Symbol) t m.
   (DomBuilder t m, StaticFile source) => Int -> m ()
-policyTiles tileCount = for_ [1 .. tileCount] $
-  \i ->
-  imgStyle
-    @source
-    (
-      toStrict $
-      toLazyText $
-      (
-        fromText "grid-area: 1 /" <>
-        decimal (2 * i) <>
-        fromText "/ 2 /" <>
-        decimal (2 * i + 1)
-      )
-    )
-    blank
+policyTiles tileCount =
+  for_
+    [1 .. tileCount]
+    (\i -> imgStyle @source (gridArea (2 * i) 1) blank)
 
 button :: DomBuilder t m => Text -> m (Event t ())
 button label = do

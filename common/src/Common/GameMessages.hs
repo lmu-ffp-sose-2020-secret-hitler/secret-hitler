@@ -6,8 +6,11 @@ import Data.IntMap.Strict
 import GHC.Generics (Generic)
 
 data GameView = GameView {
-  -- phase :: GamePhase,
+  -- The ID of the player that views this game
+  playerId :: Int,
+  playerRole :: Role,
   players :: IntMap PlayerView,
+  phase :: GamePhase,
   -- The cardPile contains the drawPile and the currentHand
   currentHand :: [Policy],
   goodPolicyCount :: Int,
@@ -36,18 +39,61 @@ data Role =
 instance FromJSON Role
 instance ToJSON Role
 
+data Alignment =
+  Good |
+  Evil
+  deriving stock (Generic)
+instance FromJSON Alignment
+instance ToJSON Alignment
+
+alignment :: Role -> Alignment
+alignment GoodRole = Good
+alignment _ = Evil
+
+data GamePhase =
+  NominateChancellorPhase {
+    previousGovernment :: Maybe Government
+  } |
+  VotePhase {
+    previousGovernment :: Maybe Government,
+    chancellorCandidateId :: Int
+  } |
+  PresidentDiscardPolicyPhase {
+    chancellorId :: Int
+  } |
+  ChancellorDiscardPolicyPhase {
+    chancellorId :: Int
+  } |
+  PolicyPeekPhase {
+    chancellorId :: Int
+  } |
+  ExecutionPhase {
+    chancellorId :: Int
+  } |
+  PendingVetoPhase {
+    chancellorId :: Int
+  }
+  deriving stock (Generic)
+instance FromJSON GamePhase
+instance ToJSON GamePhase
+
+isVotePhase :: GamePhase -> Bool
+isVotePhase VotePhase {} = True
+isVotePhase _ = False
+
+data Government = Government {
+  presidentId :: Int,
+  chancellorId :: Int
+} deriving stock (Generic)
+instance FromJSON Government
+instance ToJSON Government
+
 data Policy =
   GoodPolicy |
   EvilPolicy
   deriving stock (Generic)
 instance FromJSON Policy
 instance ToJSON Policy
-
-data PlayerAction =
-  GameAction Int GameAction
-  deriving stock (Generic)
-instance FromJSON PlayerAction
-instance ToJSON PlayerAction
 
 data GameAction =
   NominateChancellor Int |

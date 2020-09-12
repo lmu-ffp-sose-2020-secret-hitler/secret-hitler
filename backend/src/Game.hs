@@ -23,6 +23,8 @@ import Common.GameMessages
   (
     GameAction (..),
     GameEvent (..),
+    GamePhase (..),
+    Government (..),
     Policy (..),
     Role (..),
   )
@@ -66,36 +68,6 @@ newPlayer name turnOrder role = Player {
   vote = Nothing,
   alive = True
 }
-
-data Government = Government {
-  presidentId :: Int,
-  chancellorId :: Int
-} deriving stock (Show)
-
-data GamePhase =
-  NominateChancellorPhase {
-    previousGovernment :: Maybe Government
-  } |
-  VotePhase {
-    previousGovernment :: Maybe Government,
-    chancellorCandidateId :: Int
-  } |
-  PresidentDiscardPolicyPhase {
-    chancellorId :: Int
-  } |
-  ChancellorDiscardPolicyPhase {
-    chancellorId :: Int
-  } |
-  PolicyPeekPhase {
-    chancellorId :: Int
-  } |
-  ExecutionPhase {
-    chancellorId :: Int
-  } |
-  PendingVetoPhase {
-    chancellorId :: Int
-  }
-  deriving stock (Show)
 
 data Game = Game {
   phase :: GamePhase,

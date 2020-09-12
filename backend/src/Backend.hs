@@ -2,8 +2,11 @@ module Backend where
 
 import Common.GameMessages (
     GameAction (..),
+    GamePhase (..),
     GameView (..),
-    PlayerView(..),
+    PlayerView (..),
+    Role (..),
+    isVotePhase,
   )
 import Common.MessageTypes
 import Common.Route
@@ -14,11 +17,10 @@ import Control.Monad
 import qualified Data.Aeson as Aeson
 import Data.ByteString.Lazy (toStrict)
 import Data.Dependent.Sum (DSum (..))
-import Data.Foldable (for_)
 import Data.Functor.Identity (Identity (Identity))
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Text as Text
 import Data.Text.Encoding (decodeUtf8)
 import qualified Data.Text.IO as Text
@@ -106,37 +108,46 @@ removeClientFromLobby id (LobbyState lobby) =
 removeClientFromLobby _id gameState = gameState
 
 broadcast :: ServerState -> IO ()
-broadcast (ServerState {connections, gameState}) =
-  for_ connections (sendState gameState)
+broadcast (ServerState {connections, gameState}) = do
+  _ <- IntMap.traverseWithKey (sendState gameState) connections
+  return ()
 
-sendState :: GameState -> WS.Connection -> IO ()
-sendState = sendMessage . stateMessage
+sendState :: GameState -> Int -> WS.Connection -> IO ()
+sendState gameState playerId = sendMessage $ stateMessage gameState playerId
 
 sendMessage :: Aeson.ToJSON msg => msg -> WS.Connection -> IO ()
 sendMessage message connection = WS.sendTextData connection $ Aeson.encode message
 
-stateMessage :: GameState -> StateFromServer
-stateMessage (LobbyState lobby) = LobbyFromServer $ lobbyView lobby
-stateMessage (GameState game) = GameFromServer $ gameView game
+stateMessage :: GameState -> Int -> StateFromServer
+stateMessage (LobbyState lobby) _playerId = LobbyFromServer $ lobbyView lobby
+stateMessage (GameState game) playerId = GameFromServer $ gameView game playerId
 
 lobbyView :: Lobby -> LobbyView
 lobbyView (Lobby {players}) = LobbyView {
   playerNames = fmap (view #name) $ IntMap.elems $ players
 }
 
-gameView :: Game -> GameView
+gameView :: Game -> Int -> GameView
 gameView game@(Game {
+  phase,
   goodPolicyCount,
   evilPolicyCount,
   presidentId,
   electionTracker
-}) =
+}) playerId =
   let
-    players = IntMap.map playerView $ game ^. #players
+    player = fromJust $ game ^. (#players . at playerId)
+    playerRole = player ^. #role
+    gamePhase = game ^. #phase
+    playerCount = IntMap.size $ game ^. #players
+    players = IntMap.map (playerView playerRole playerCount gamePhase) (game ^. #players)
     currentHand = Game.currentHand game
   in
   GameView {
+    playerId,
+    playerRole,
     players,
+    phase,
     currentHand,
     goodPolicyCount,
     evilPolicyCount,
@@ -144,21 +155,19 @@ gameView game@(Game {
     electionTracker
   }
 
-playerView :: Game.Player -> PlayerView
-playerView (Game.Player {
+playerView :: Role -> Int -> GamePhase -> Game.Player -> PlayerView
+playerView _playerRole _playerCount gamePhase (Game.Player {
   name,
   turnOrder,
+  role,
+  vote,
   alive
 }) =
-  let
-    role = Nothing
-    vote = Nothing
-  in
   PlayerView {
     name,
     turnOrder,
-    role,
-    vote,
+    role = mfilter (const True) (Just role),
+    vote = mfilter (const $ isVotePhase gamePhase) vote,
     alive
   }
 

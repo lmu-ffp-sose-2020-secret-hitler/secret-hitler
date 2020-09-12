@@ -8,6 +8,7 @@ module Frontend where
 import Common.GameMessages
 import Data.Foldable (for_)
 import Control.Monad.Fix (MonadFix)
+import Data.Maybe (fromMaybe)
 import GHC.TypeLits (Symbol)
 import Data.List.NonEmpty
 import Data.List (sortOn)
@@ -103,14 +104,14 @@ gameWidget gameView =
     elId "div" "phase_dependent" $
       dyn_
         (
-          fmap
-            (\case
-              NominateChancellorPhase _ -> do
-                text "Please nominate a chancellor by clicking their name."
-                -- (dynText =<<) $ holdDyn T.empty $ fmap (toStrict . toLazyText . decimal) $ playerSelect
+          (\(GameView {phase, playerId, presidentId}) ->
+            case phase of
+              NominateChancellorPhase {}
+                | playerId == presidentId ->
+                  text "Please nominate a chancellor by clicking their name."
               _ -> blank
-            ) $
-          fmap (view #phase) $
+          )
+          <$>
           gameView
         )
     pure playerSelect
@@ -136,26 +137,34 @@ playerList gameView =
           gameView
         )
         (
-          \idAndPlayer ->
+          \(idAndPlayer :: Dynamic t (Int, PlayerView)) ->
           do
             let player = snd <$> idAndPlayer
             (reference, _) <-
               elDynClass'
                 "div"
                 ((bool "dead" T.empty . view #alive) <$> player)
-                (dynText (view #name <$> player))
+                (do
+                  dynText (view #name <$> player)
+                  (
+                    dyn_ $
+                    fmap (bool blank presidentMark) $
+                    zipDynWith
+                      (==)
+                      (fst <$> idAndPlayer)
+                      (view #presidentId <$> gameView))
+                  (
+                    dyn_ $
+                    fmap (bool blank chancellorMark) $
+                    zipDynWith
+                      (\p c -> fromMaybe False $ (p ==) <$> c)
+                      (fst <$> idAndPlayer)
+                      chancellorIdCurrent)
+                )
             pure $ tagDyn (fst <$> idAndPlayer) (domEvent Click reference)
         )
     )
   where
-    wrapInGameAction :: GamePhase -> Int -> Maybe GameAction
-    wrapInGameAction phase playerId =
-      ($ playerId)
-      <$>
-      (case phase of
-        NominateChancellorPhase {} -> Just NominateChancellor
-        _ -> Nothing
-      )
     selectable :: Dynamic t Bool
     selectable =
       (\(GameView {phase, playerId, presidentId}) ->
@@ -166,6 +175,48 @@ playerList gameView =
       )
       <$>
       gameView
+    presidentMark :: m ()
+    presidentMark =
+      elAttr
+        "img"
+        (
+          "title" =: "President" <>
+          "id" =: "president_mark" <>
+          "src" =: static @"president_mark.svg"
+        )
+        blank
+    chancellorMark :: m ()
+    chancellorMark =
+      elAttr
+        "img"
+        (
+          "title" =: "Chancellor" <>
+          "id" =: "chancellor_mark" <>
+          "src" =: static @"chancellor_mark.png"
+        )
+        blank
+    chancellorIdCurrent :: Dynamic t (Maybe Int)
+    chancellorIdCurrent =
+      fmap
+        (\case
+          NominateChancellorPhase {} -> Nothing
+          VotePhase {chancellorCandidateId} -> Just chancellorCandidateId
+          PresidentDiscardPolicyPhase {chancellorId} -> Just chancellorId
+          ChancellorDiscardPolicyPhase {chancellorId} -> Just chancellorId
+          PolicyPeekPhase {chancellorId} -> Just chancellorId
+          ExecutionPhase {chancellorId} -> Just chancellorId
+          PendingVetoPhase {chancellorId} -> Just chancellorId
+        ) $
+      fmap (view #phase) $
+      gameView
+    wrapInGameAction :: GamePhase -> Int -> Maybe GameAction
+    wrapInGameAction phase playerId =
+      ($ playerId)
+      <$>
+      (case phase of
+        NominateChancellorPhase {} -> Just NominateChancellor
+        _ -> Nothing
+      )    
 
 tagDyn :: Reflex t => Dynamic t a -> Event t b -> Event t a
 tagDyn = tag . current
@@ -198,9 +249,10 @@ policyTiles tileCount =
     (\i -> imgStyle @source (gridArea (2 * i) 1) blank)
 
 button :: DomBuilder t m => Text -> m (Event t ())
-button label = do
-  (reference, _) <- el' "button" (text label)
-  pure (domEvent Click reference)
+button label =
+  fmap (domEvent Click) $
+  fmap fst $
+  el' "button" (text label)
 
 elId :: DomBuilder t m => Text -> Text -> m a -> m a
 elId elementTag i child = snd <$> elId' elementTag i child

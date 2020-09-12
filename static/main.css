@@ -86,7 +86,7 @@ img {
     float: right;
     cursor: help;
 }
-#chancellor_icon {
+#chancellor_mark {
     margin-right: .4em;
 }
 #player_list.select>div:not(.dead) {

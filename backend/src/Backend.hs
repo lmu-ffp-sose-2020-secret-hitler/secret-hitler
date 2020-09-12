@@ -136,19 +136,22 @@ gameView game@(Game {
   electionTracker
 }) playerId =
   let
-    player = fromJust $ game ^. (#players . at playerId)
+    players = game ^. #players
+    player = fromJust $ game ^. #players . at playerId
     playerRole = player ^. #role
+    playerCount = IntMap.size $ players
     gamePhase = game ^. #phase
-    playerCount = IntMap.size $ game ^. #players
-    players = IntMap.map (playerView playerRole playerCount gamePhase) (game ^. #players)
     currentHand = Game.currentHand game
+    drawPileSize = length (Game.drawPile game)
   in
   GameView {
     playerId,
     playerRole,
-    players,
+    players = IntMap.map (playerView playerRole playerCount gamePhase) players,
     phase,
-    currentHand,
+    currentHand = filter (const $ Game.isPlayerAllowedToAct playerId game) currentHand,
+    drawPileSize,
+    discardPileSize = 6+11 - drawPileSize - (length currentHand) - goodPolicyCount - evilPolicyCount,
     goodPolicyCount,
     evilPolicyCount,
     presidentId,
@@ -156,7 +159,7 @@ gameView game@(Game {
   }
 
 playerView :: Role -> Int -> GamePhase -> Game.Player -> PlayerView
-playerView _playerRole _playerCount gamePhase (Game.Player {
+playerView playerRole playerCount gamePhase (Game.Player {
   name,
   turnOrder,
   role,
@@ -166,10 +169,15 @@ playerView _playerRole _playerCount gamePhase (Game.Player {
   PlayerView {
     name,
     turnOrder,
-    role = mfilter (const True) (Just role),
+    role = mfilter (const $ canSeeOtherRoles playerRole playerCount) (Just role),
     vote = mfilter (const $ isVotePhase gamePhase) vote,
     alive
   }
+  where
+    canSeeOtherRoles :: Role -> Int -> Bool
+    canSeeOtherRoles GoodRole _playerCount = False
+    canSeeOtherRoles EvilRole _playerCount = True
+    canSeeOtherRoles EvilLeaderRole playerCount = playerCount <= 5
 
 talk :: Int -> WS.Connection -> MVar ServerState -> IO ()
 talk id connection stateMVar = do

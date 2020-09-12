@@ -8,11 +8,14 @@ import GHC.Generics (Generic)
 data GameView = GameView {
   -- The ID of the player that views this game
   playerId :: Int,
+  -- The Role of the player that views this game
   playerRole :: Role,
   players :: IntMap PlayerView,
   phase :: GamePhase,
-  -- The cardPile contains the drawPile and the currentHand
+  -- The current hand is empty unless the player is president or chancellor in the correct phase
   currentHand :: [Policy],
+  drawPileSize :: Int,
+  discardPileSize :: Int,
   goodPolicyCount :: Int,
   evilPolicyCount :: Int,
   presidentId :: Int,

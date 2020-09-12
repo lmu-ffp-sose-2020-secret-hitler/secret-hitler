@@ -9,6 +9,7 @@ module Game (
   currentHand,
   generateRandomGame,
   updateChecked,
+  isPlayerAllowedToAct,
   nominateChancellor,
   placeVote,
   discardPolicy,
@@ -92,6 +93,7 @@ currentHandSize :: Num p => Game -> p
 currentHandSize (Game { phase }) = case phase of
   PresidentDiscardPolicyPhase {} -> 3
   ChancellorDiscardPolicyPhase {} -> 2
+  PolicyPeekPhase {} -> 3
   _ -> 0
 
 newGame :: IntMap Player -> [Policy] -> Game
@@ -155,18 +157,18 @@ updateChecked :: Int -> GameAction -> Game -> Random (Game, GameEvent)
 updateChecked actorId action game
   | isPlayerAllowedToAct actorId game = update actorId action game
   | otherwise = return (game, Error $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
-  where
-  isPlayerAllowedToAct :: Int -> Game -> Bool
-  isPlayerAllowedToAct actorId game@(Game { phase }) =
-    let actorIsPresident = actorId == game ^. #presidentId in
-    case phase of
-      NominateChancellorPhase {} -> actorIsPresident
-      VotePhase {} -> True
-      PresidentDiscardPolicyPhase {} -> actorIsPresident
-      ChancellorDiscardPolicyPhase { chancellorId } -> actorId == chancellorId
-      PolicyPeekPhase {} -> actorIsPresident
-      ExecutionPhase {} -> actorIsPresident
-      PendingVetoPhase {} -> actorIsPresident
+
+isPlayerAllowedToAct :: Int -> Game -> Bool
+isPlayerAllowedToAct actorId game@(Game { phase }) =
+  let actorIsPresident = actorId == game ^. #presidentId in
+  case phase of
+    NominateChancellorPhase {} -> actorIsPresident
+    VotePhase {} -> True
+    PresidentDiscardPolicyPhase {} -> actorIsPresident
+    ChancellorDiscardPolicyPhase { chancellorId } -> actorId == chancellorId
+    PolicyPeekPhase {} -> actorIsPresident
+    ExecutionPhase {} -> actorIsPresident
+    PendingVetoPhase {} -> actorIsPresident
 
 update :: Int -> GameAction -> Game -> Random (Game, GameEvent)
 update actorId action = do

@@ -96,7 +96,7 @@ gameWidget gameUpdate =
         "img"
         (
           fmap
-            (\i -> "src" =: static @"circle.svg" <> "style" =: gridArea (2 * i) 2) $
+            (\i -> "src" =: static @"circle.svg" <> "style" =: gridArea (1 + 2 * i) 1) $
           fmap (view #electionTracker) $
           gameView
         )
@@ -360,8 +360,8 @@ policyTiles ::
   (DomBuilder t m, StaticFile source) => Int -> m ()
 policyTiles tileCount =
   for_
-    [0 .. tileCount]
-    (\i -> imgStyle @source (gridArea (2 * i) 1) blank)
+    [0 .. tileCount-1]
+    (\i -> imgStyle @source (gridArea (1 + 2 * i) 0) blank)
 
 button :: DomBuilder t m => Text -> m (Event t ())
 button label =

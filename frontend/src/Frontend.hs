@@ -101,7 +101,7 @@ gameWidget gameUpdate =
           gameView
         )
         blank
-    elDynAttr--
+    elDynAttr
       "img"
       (
         fmap
@@ -346,13 +346,13 @@ gridArea x y =
   toLazyText $
   (
     fromText "grid-area:" <>
-    decimal y <>
-    fromText "/" <>
-    decimal x <>
-    fromText "/" <>
     decimal (y + 1) <>
     fromText "/" <>
-    decimal (x + 1)
+    decimal (x + 1) <>
+    fromText "/" <>
+    decimal (y + 2) <>
+    fromText "/" <>
+    decimal (x + 2)
   )
 
 policyTiles ::
@@ -360,7 +360,7 @@ policyTiles ::
   (DomBuilder t m, StaticFile source) => Int -> m ()
 policyTiles tileCount =
   for_
-    [1 .. tileCount]
+    [0 .. tileCount]
     (\i -> imgStyle @source (gridArea (2 * i) 1) blank)
 
 button :: DomBuilder t m => Text -> m (Event t ())

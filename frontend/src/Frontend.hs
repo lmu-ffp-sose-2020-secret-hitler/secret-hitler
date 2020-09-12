@@ -128,9 +128,22 @@ phaseDependentWidget ::
   GameView -> m (Event t GameAction)
 phaseDependentWidget (GameView {phase, playerId, presidentId}) =
   case phase of
+    VotePhase {} -> votePhaseWidget
     NominateChancellorPhase {}
       | playerId == presidentId -> nominateChancellorPhaseWidget
     _ -> blank *> pure never
+
+votePhaseWidget :: DomBuilder t m => m (Event t GameAction)
+votePhaseWidget = do
+  event <- elId "div" "vote_phase" $ do
+    (yesButton, _) <- elAttr' "img" ("src" =: static @"ja_ballot.png") blank
+    (noButton, _) <- elAttr' "img" ("src" =: static @"nein_ballot.png") blank
+    return $
+      leftmost [
+        PlaceVote True <$ domEvent Click yesButton,
+        PlaceVote False <$ domEvent Click noButton
+      ]
+  return event
 
 nominateChancellorPhaseWidget :: DomBuilder t m => m (Event t GameAction)
 nominateChancellorPhaseWidget = do

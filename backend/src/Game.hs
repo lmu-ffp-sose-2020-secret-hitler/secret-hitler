@@ -539,14 +539,17 @@ nominateNextRegularPresident previousGovernment gameOld =
           alivePlayersList = IntMap.toList $ alivePlayers game in
       fst $
       fromMaybe (error "all players dying should not be possible") $
-        (minimumMaybe $ filter ((president <) . snd) alivePlayersList)
-        <|> (minimumMaybe $ alivePlayersList)
+        (minimumMaybeOn snd $ filter ((president <) . snd) alivePlayersList)
+        <|> (minimumMaybeOn snd alivePlayersList)
     getPresident :: Game -> Player
     getPresident game =
       let presidentIdOld = game ^. #presidentId in
       fromMaybe
         (error "president is not a player")
         (game ^. #players . at presidentIdOld)
-    minimumMaybe :: Ord a => [a] -> Maybe a
-    minimumMaybe [] = Nothing
-    minimumMaybe list = Just $ minimum list
+    minimumMaybeOn :: Ord b => (a -> b) -> [a] -> Maybe a
+    minimumMaybeOn _ [] = Nothing
+    minimumMaybeOn f list = minimumMaybeBy (compare `on` f) list
+    minimumMaybeBy :: (a -> a -> Ordering) -> [a] -> Maybe a
+    minimumMaybeBy _cmp [] = Nothing
+    minimumMaybeBy cmp list = Just $ minimumBy cmp list

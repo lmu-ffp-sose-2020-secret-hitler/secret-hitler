@@ -121,22 +121,31 @@ talk id connection stateMVar = do
     case messageMaybe of
       Nothing -> putStrLn $ "Could not decode message from client " ++ show id
       Just message -> do
-        Text.putStrLn $ "Received message from client " <> Text.pack (show id) <>
-          ": " <> (decodeUtf8 $ toStrict $ Aeson.encode message)
+        Text.putStrLn $ "Received message from client " <> Text.pack (show id) <> ": "
+          <> (encodeAsText message)
         case message of
           LobbyAction payload -> modifyMVar_ stateMVar (answerLobbyToServer id payload)
           GameAction payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
 
 sendToAll :: (Foldable f, Aeson.ToJSON msg) => f WS.Connection -> msg -> IO ()
-sendToAll connections message =
+sendToAll connections message = do
+  Text.putStrLn $ "Sending message to all clients: " <> (encodeAsText message)
   traverse_ (sendMessage message) connections
 
 sendToAllWithKey :: Aeson.ToJSON msg => IntMap WS.Connection -> (Int -> msg) -> IO ()
-sendToAllWithKey connections createMessage =
+sendToAllWithKey connections createMessage = do
+  case fst <$> IntMap.lookupMin connections of
+    Nothing -> return ()
+    Just minId -> Text.putStrLn $
+      "Sending different messages to all clients, message for first client: "
+      <> (encodeAsText $ createMessage minId)
   void $ IntMap.traverseWithKey (sendMessage . createMessage) connections
 
 sendMessage :: Aeson.ToJSON msg => msg -> WS.Connection -> IO ()
 sendMessage message connection = WS.sendTextData connection $ Aeson.encode message
+
+encodeAsText :: Aeson.ToJSON msg => msg -> Text.Text
+encodeAsText message = decodeUtf8 $ toStrict $ Aeson.encode message
 
 ----------------------------------------------------------------------------------------------------
 --    _            _      _

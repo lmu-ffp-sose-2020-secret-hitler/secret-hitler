@@ -47,29 +47,14 @@ import GHC.Generics (Generic)
 import Random (Random, withStdGen)
 import VectorShuffling.Immutable (shuffle)
 
-data Player = Player {
-  name :: Text,
-  turnOrder :: Int,
-  role :: Role,
-  vote :: Maybe Bool,
-  alive :: Bool
-} deriving stock (Generic)
-
-instance Eq Player where
-  p1 == p2 = (p1 ^. #turnOrder) == (p2 ^. #turnOrder)
-
-instance Ord Player where
-  compare p1 p2 = compare (p1 ^. #turnOrder) (p2 ^. #turnOrder)
-
-newPlayer :: Text -> Int -> Role -> Player
-newPlayer name turnOrder role = Player {
-  name,
-  -- A number in [0;playerCount[ specifying the turn order
-  turnOrder,
-  role,
-  vote = Nothing,
-  alive = True
-}
+----------------------------------------------------------------------------------------------------
+--     ____
+--    / ___|  __ _  _ __ ___    ___
+--   | |  _  / _` || '_ ` _ \  / _ \
+--   | |_| || (_| || | | | | ||  __/
+--    \____| \__,_||_| |_| |_| \___|
+--
+----------------------------------------------------------------------------------------------------
 
 data Game = Game {
   phase :: GamePhase,
@@ -110,6 +95,48 @@ newGame players drawPile =
     regularPresidentId = presidentId,
     electionTracker = 0
   }
+
+----------------------------------------------------------------------------------------------------
+--    ____   _
+--   |  _ \ | |  __ _  _   _   ___  _ __
+--   | |_) || | / _` || | | | / _ \| '__|
+--   |  __/ | || (_| || |_| ||  __/| |
+--   |_|    |_| \__,_| \__, | \___||_|
+--                     |___/
+----------------------------------------------------------------------------------------------------
+
+data Player = Player {
+  name :: Text,
+  turnOrder :: Int,
+  role :: Role,
+  vote :: Maybe Bool,
+  alive :: Bool
+} deriving stock (Generic)
+
+instance Eq Player where
+  p1 == p2 = (p1 ^. #turnOrder) == (p2 ^. #turnOrder)
+
+instance Ord Player where
+  compare p1 p2 = compare (p1 ^. #turnOrder) (p2 ^. #turnOrder)
+
+newPlayer :: Text -> Int -> Role -> Player
+newPlayer name turnOrder role = Player {
+  name,
+  -- A number in [0;playerCount[ specifying the turn order
+  turnOrder,
+  role,
+  vote = Nothing,
+  alive = True
+}
+
+----------------------------------------------------------------------------------------------------
+--     ____                                 _
+--    / ___|  ___  _ __    ___  _ __  __ _ | |_  ___
+--   | |  _  / _ \| '_ \  / _ \| '__|/ _` || __|/ _ \
+--   | |_| ||  __/| | | ||  __/| |  | (_| || |_|  __/
+--    \____| \___||_| |_| \___||_|   \__,_| \__|\___|
+--
+----------------------------------------------------------------------------------------------------
 
 generateRandomGame :: IntMap Text -> Random Game
 generateRandomGame playerNames = do
@@ -154,6 +181,15 @@ generateRandomCardPile goodPolicyCount evilPolicyCount =
   in
   Vector.toList <$> (withStdGen $ shuffle (goodPolicies Vector.++ evilPolicies))
 
+----------------------------------------------------------------------------------------------------
+--    _   _             _         _
+--   | | | | _ __    __| |  __ _ | |_  ___
+--   | | | || '_ \  / _` | / _` || __|/ _ \
+--   | |_| || |_) || (_| || (_| || |_|  __/
+--    \___/ | .__/  \__,_| \__,_| \__|\___|
+--          |_|
+----------------------------------------------------------------------------------------------------
+
 updateChecked :: Int -> GameAction -> Game -> Random (Game, GameEvent)
 updateChecked actorId action game
   | isPlayerAllowedToAct actorId game = update actorId action game
@@ -187,6 +223,15 @@ update actorId action = do
 withGameEvent :: GameEvent -> Game -> (Game, GameEvent)
 withGameEvent = flip (,)
 
+----------------------------------------------------------------------------------------------------
+--    _   _                    _           ____  _                               _  _
+--   | \ | |  ___   _ __ ___  (_) _ __    / ___|| |__    __ _  _ __    ___  ___ | || |  ___   _ __
+--   |  \| | / _ \ | '_ ` _ \ | || '_ \  | |    | '_ \  / _` || '_ \  / __|/ _ \| || | / _ \ | '__|
+--   | |\  || (_) || | | | | || || | | | | |___ | | | || (_| || | | || (__|  __/| || || (_) || |
+--   |_| \_| \___/ |_| |_| |_||_||_| |_|  \____||_| |_| \__,_||_| |_| \___|\___||_||_| \___/ |_|
+--
+----------------------------------------------------------------------------------------------------
+
 nominateChancellor :: Int -> Game -> (Game, GameEvent)
 nominateChancellor chancellorCandidateId gameOld@(Game {
   phase = NominateChancellorPhase { previousGovernment }
@@ -213,6 +258,15 @@ nominateChancellor chancellorCandidateId gameOld@(Game {
             else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
 nominateChancellor _playerId gameOld =
   (gameOld, Error "Cannot nominate a chancellor outside of NominateChancellorPhase")
+
+----------------------------------------------------------------------------------------------------
+--    ____   _                    __     __      _
+--   |  _ \ | |  __ _   ___  ___  \ \   / /___  | |_  ___
+--   | |_) || | / _` | / __|/ _ \  \ \ / // _ \ | __|/ _ \
+--   |  __/ | || (_| || (__|  __/   \ V /| (_) || |_|  __/
+--   |_|    |_| \__,_| \___|\___|    \_/  \___/  \__|\___|
+--
+----------------------------------------------------------------------------------------------------
 
 placeVote :: Int -> Bool -> Game -> Random (Game, GameEvent)
 placeVote actorId vote gameOld@(Game {
@@ -243,6 +297,15 @@ placeVote actorId vote gameOld@(Game {
       pure $ nominateNextRegularPresident (mfilter (const $ not chaos) previousGovernment) game
 placeVote _actorId _vote gameOld =
   return (gameOld, Error "Cannot vote outside of VotePhase")
+
+----------------------------------------------------------------------------------------------------
+--    ____   _                            _
+--   |  _ \ (_) ___   ___  __ _  _ __  __| |
+--   | | | || |/ __| / __|/ _` || '__|/ _` |
+--   | |_| || |\__ \| (__| (_| || |  | (_| |
+--   |____/ |_||___/ \___|\__,_||_|   \__,_|
+--
+----------------------------------------------------------------------------------------------------
 
 discardPolicy :: Int -> Game -> Random (Game, GameEvent)
 discardPolicy policyIndex gameOld =
@@ -299,6 +362,15 @@ discardPolicy policyIndex gameOld =
               _ -> Nothing
          | otherwise -> Nothing
 
+----------------------------------------------------------------------------------------------------
+--    ____                   _      _               _     ____
+--   |  _ \  _ __  ___  ___ (_)  __| |  ___  _ __  | |_  |  _ \  ___ __      __ ___  _ __  ___
+--   | |_) || '__|/ _ \/ __|| | / _` | / _ \| '_ \ | __| | |_) |/ _ \\ \ /\ / // _ \| '__|/ __|
+--   |  __/ | |  |  __/\__ \| || (_| ||  __/| | | || |_  |  __/| (_) |\ V  V /|  __/| |   \__ \
+--   |_|    |_|   \___||___/|_| \__,_| \___||_| |_| \__| |_|    \___/  \_/\_/  \___||_|   |___/
+--
+----------------------------------------------------------------------------------------------------
+
 stopPeekingPolicies :: Game -> (Game, GameEvent)
 stopPeekingPolicies game@(Game {
   phase = PolicyPeekPhase { chancellorId }
@@ -318,6 +390,15 @@ executePlayer playerId game@(Game {
   game & #players . ix playerId . #alive .~ False
 executePlayer _playerId game =
   (game, Error "Cannot execute a player outside of ExecutionPhase")
+
+----------------------------------------------------------------------------------------------------
+--   __     __     _
+--   \ \   / /___ | |_  ___
+--    \ \ / // _ \| __|/ _ \
+--     \ V /|  __/| |_| (_) |
+--      \_/  \___| \__|\___/
+--
+----------------------------------------------------------------------------------------------------
 
 proposeVeto :: Game -> (Game, GameEvent)
 proposeVeto game@(Game {

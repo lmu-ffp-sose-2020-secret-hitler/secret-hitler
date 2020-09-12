@@ -190,10 +190,10 @@ talk id connection stateMVar = do
         Text.putStrLn $ "Received message from client " <> Text.pack (show id) <>
           ": " <> (decodeUtf8 $ toStrict $ Aeson.encode message)
         case message of
-          LobbyInput payload -> modifyMVar_ stateMVar (answerLobbyToServer id payload)
-          GameInput payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
+          LobbyAction payload -> modifyMVar_ stateMVar (answerLobbyToServer id payload)
+          GameAction payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
 
-answerLobbyToServer :: Int -> LobbyInput -> ServerState -> IO (ServerState)
+answerLobbyToServer :: Int -> LobbyAction -> ServerState -> IO (ServerState)
 answerLobbyToServer id payload stateOld@ServerState {gameState=LobbyState lobbyOld} = do
   stateNew <- case payload of
     StartGame -> do

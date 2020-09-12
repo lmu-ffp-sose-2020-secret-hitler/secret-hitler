@@ -30,21 +30,21 @@ instance FromJSON LobbyView
 lobbyViewInitial :: LobbyView
 lobbyViewInitial = LobbyView []
 
-data InputFromClient =
-  LobbyInput LobbyInput |
-  GameInput GameAction
+data ActionFromClient =
+  LobbyAction LobbyAction |
+  GameAction GameAction
   deriving stock (Generic)
-instance ToJSON InputFromClient where
+instance ToJSON ActionFromClient where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON InputFromClient
+instance FromJSON ActionFromClient
 
-data LobbyInput =
+data LobbyAction =
   Join Text |
   StartGame
   deriving stock (Show, Generic)
-instance ToJSON LobbyInput where
+instance ToJSON LobbyAction where
   toEncoding = genericToEncoding defaultOptions
-instance FromJSON LobbyInput
+instance FromJSON LobbyAction
 
 data StateFromServerTag a where
   LobbyFromServerTag :: StateFromServerTag LobbyView

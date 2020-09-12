@@ -62,7 +62,7 @@ frontend =
 
 lobbyWidget ::
   (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m) =>
-  Dynamic t LobbyView -> m (Event t LobbyInput)
+  Dynamic t LobbyView -> m (Event t LobbyAction)
 lobbyWidget lobbyView =
   do
     elId "div" "player_list_lobby" $ void $
@@ -226,12 +226,12 @@ application baseUri =
           Right uri ->
             fmap (view webSocket_recv) $
             webSocket (render uri)
-              (def & webSocketConfig_send .~ (((: []) . A.encode) <$> inputFromClient))
+              (def & webSocketConfig_send .~ (((: []) . A.encode) <$> actionFromClient))
         )
     let
-      widgetInitial :: m (Event t InputFromClient)
+      widgetInitial :: m (Event t ActionFromClient)
       widgetInitial =
-        (fmap . fmap) LobbyInput $
+        (fmap . fmap) LobbyAction $
         (lobbyWidget =<<) $
         holdDyn lobbyViewInitial $
         mapMaybe
@@ -240,19 +240,19 @@ application baseUri =
             _ -> Nothing
           ) $
         stateFromServer
-    widgetDynamic :: Event t (m (Event t InputFromClient)) <-
+    widgetDynamic :: Event t (m (Event t ActionFromClient)) <-
       fmap updated $
       (fmap . fmap)
         (\case
           LobbyFromServerTag :=> lobbyFromServer ->
-            (fmap . fmap) LobbyInput (lobbyWidget lobbyFromServer)
+            (fmap . fmap) LobbyAction (lobbyWidget lobbyFromServer)
           GameFromServerTag :=> gameFromServer ->
-            (fmap . fmap) GameInput (gameWidget gameFromServer)
+            (fmap . fmap) GameAction (gameWidget gameFromServer)
         ) $
       (stateFromServerDyn =<<) $
       holdDyn (LobbyFromServer lobbyViewInitial) $
       stateFromServer
-    inputFromClient :: Event t InputFromClient <-
+    actionFromClient :: Event t ActionFromClient <-
       switchDyn <$>
       widgetHold
         widgetInitial

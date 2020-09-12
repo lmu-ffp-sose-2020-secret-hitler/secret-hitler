@@ -85,7 +85,7 @@ gameWidget gameUpdate =
   elId "div" "board" $ do
     playerSelect :: Event t GameAction <- playerList gameView
     imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
-    imgStyle @"board_fascist_7_8.png" "grid-area: board_fascist" blank
+    imgStyle @"board_fascist_5_6.png" "grid-area: board_fascist" blank
     elId "div" "policies_fascist" $
       dyn_ ((policyTiles @"policy_fascist.png" . view #evilPolicyCount) <$> gameView)
     imgStyle @"board_liberal.png" "grid-area: board_liberal" blank

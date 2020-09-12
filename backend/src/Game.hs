@@ -236,9 +236,10 @@ withGameEvent = flip (,)
 
 nominateChancellor :: Int -> Game -> (Game, GameEvent)
 nominateChancellor chancellorCandidateId gameOld@(Game {
+  presidentId,
   phase = NominateChancellorPhase { previousGovernment }
 }) =
-  if isEligible chancellorCandidateId previousGovernment $ alivePlayers gameOld
+  if isEligible chancellorCandidateId presidentId previousGovernment $ alivePlayers gameOld
   then
     withGameEvent ChancellorNominated $
     gameOld
@@ -247,17 +248,15 @@ nominateChancellor chancellorCandidateId gameOld@(Game {
   else
     (gameOld, Error $ "Player " <> Text.pack (show chancellorCandidateId) <> " is not eligible")
   where
-    isEligible :: Int -> Maybe Government -> IntMap Player -> Bool
-    isEligible chancellorCandidateId previousGovernment alivePlayers =
-      if isNothing $ IntMap.lookup chancellorCandidateId alivePlayers
-      then False
-      else
-        case previousGovernment of
-          Nothing -> True
-          Just Government { presidentId, chancellorId } ->
-            if IntMap.size alivePlayers <= 5
-            then chancellorCandidateId /= chancellorId
-            else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
+    isEligible :: Int -> Int -> Maybe Government -> IntMap Player -> Bool
+    isEligible chancellorCandidateId presidentId previousGovernment alivePlayers
+      | chancellorCandidateId == presidentId = False
+      | isNothing $ IntMap.lookup chancellorCandidateId alivePlayers = False
+      | Nothing <- previousGovernment = True
+      | Just Government { presidentId, chancellorId } <- previousGovernment =
+        if IntMap.size alivePlayers <= 5
+        then chancellorCandidateId /= chancellorId
+        else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
 nominateChancellor _playerId gameOld =
   (gameOld, Error "Cannot nominate a chancellor outside of NominateChancellorPhase")
 

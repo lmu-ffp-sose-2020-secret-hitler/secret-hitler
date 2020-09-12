@@ -102,23 +102,40 @@ gameWidget gameUpdate =
         blank
     elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-    elId "div" "phase_dependent" $
-      dyn_
+    phaseDependentAction <- elId "div" "phase_dependent" $
+      fmap switchDyn $
+      widgetHold
+        nominateChancellorPhaseWidget
         (
-          (\(GameView {phase, playerId, presidentId}) ->
-            case phase of
-              NominateChancellorPhase {}
-                | playerId == presidentId ->
-                  text "Please nominate a chancellor by clicking their name."
-              _ -> blank
-          )
-          <$>
+          updated $
+          fmap phaseDependentWidget $
           gameView
-        )
-    pure playerSelect
+        )        
+      -- switchHold never =<<
+      -- dyn
+      --   (
+      --     phaseDependentWidget
+      --     <$>
+      --     gameView
+      --   )
+    pure $ leftmost [playerSelect, phaseDependentAction]
   where
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
+
+phaseDependentWidget ::
+  (PostBuild t m, DomBuilder t m, MonadHold t m) =>
+  GameView -> m (Event t GameAction)
+phaseDependentWidget (GameView {phase, playerId, presidentId}) =
+  case phase of
+    NominateChancellorPhase {}
+      | playerId == presidentId -> nominateChancellorPhaseWidget
+    _ -> blank *> pure never
+
+nominateChancellorPhaseWidget :: DomBuilder t m => m (Event t GameAction)
+nominateChancellorPhaseWidget = do
+  text "Please nominate a chancellor by clicking their name."
+  pure never
 
 playerList ::
   forall t m.

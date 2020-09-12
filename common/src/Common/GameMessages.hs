@@ -19,7 +19,8 @@ data GameView = GameView {
   goodPolicyCount :: Int,
   evilPolicyCount :: Int,
   presidentId :: Int,
-  electionTracker :: Int
+  electionTracker :: Int,
+  vetoUnlocked :: Bool
 } deriving stock (Generic)
 instance FromJSON GameView
 instance ToJSON GameView

@@ -142,8 +142,9 @@ gameWidget gameUpdate =
 phaseDependentWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>
   GameView -> m (Event t GameAction)
-phaseDependentWidget (GameView {phase, playerId, presidentId, currentHand}) =
-  case phase of
+phaseDependentWidget
+  (GameView {phase, playerId, presidentId, currentHand, vetoUnlocked})
+  = case phase of
     NominateChancellorPhase {}
       | playerId == presidentId -> nominateChancellorPhaseWidget
     VotePhase {} -> votePhaseWidget
@@ -152,8 +153,11 @@ phaseDependentWidget (GameView {phase, playerId, presidentId, currentHand}) =
         discardPolicyPhaseWidget currentHand PresidentDiscardPolicy (pure never)
     ChancellorDiscardPolicyPhase {}
       | length currentHand >= 2 ->
-        discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy
-          ((fmap . fmap) (const ProposeVeto) (button "I wish to veto this agenda"))
+        discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy $
+          if vetoUnlocked
+          then
+            ((fmap . fmap) (const ProposeVeto) (button "I wish to veto this agenda"))
+          else pure never
     PolicyPeekPhase {}
       | length currentHand >= 3 ->
         policyPeekPhaseWidget currentHand
@@ -165,7 +169,7 @@ phaseDependentWidget (GameView {phase, playerId, presidentId, currentHand}) =
         sequenceA $
         [
           ((fmap . fmap) (const AcceptVeto) (button "I agree to the veto")),
-          ((fmap . fmap) (const ProposeVeto) (button "nope"))
+          ((fmap . fmap) (const RejectVeto) (button "nope"))
         ]
     _ -> pure never
 

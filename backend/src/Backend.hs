@@ -245,7 +245,8 @@ createGameView game@(Game {
     goodPolicyCount,
     evilPolicyCount,
     presidentId,
-    electionTracker
+    electionTracker,
+    vetoUnlocked = evilPolicyCount >= 5
   }
 
 playerView :: Role -> Int -> GamePhase -> Game.Player -> PlayerView

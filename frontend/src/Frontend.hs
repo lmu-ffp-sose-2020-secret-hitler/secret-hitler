@@ -138,6 +138,9 @@ phaseDependentWidget (GameView {phase, playerId, presidentId, currentHand}) =
     ChancellorDiscardPolicyPhase {}
       | length currentHand >= 2 ->
         discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy
+    PolicyPeekPhase {}
+      | length currentHand >= 3 ->
+        policyPeekPhaseWidget currentHand
     ExecutionPhase {}
       | playerId == presidentId -> executionPhaseWidget
     _ -> blank *> pure never
@@ -149,7 +152,7 @@ nominateChancellorPhaseWidget = do
 
 votePhaseWidget :: DomBuilder t m => m (Event t GameAction)
 votePhaseWidget = do
-  event <- elId "div" "vote_phase" $ do
+  elId "div" "vote_phase" $ do
     (yesButton, _) <- elAttr' "img" ("src" =: static @"ja_ballot.png") blank
     (noButton, _) <- elAttr' "img" ("src" =: static @"nein_ballot.png") blank
     return $
@@ -157,7 +160,6 @@ votePhaseWidget = do
         PlaceVote True <$ domEvent Click yesButton,
         PlaceVote False <$ domEvent Click noButton
       ]
-  return event
 
 discardPolicyPhaseWidget ::
   DomBuilder t m => [Policy] -> (Int -> GameAction) -> m (Event t GameAction)
@@ -179,6 +181,17 @@ discardPolicyPhaseWidget currentHand makeGameAction =
           )
           blank
       )
+
+policyPeekPhaseWidget :: DomBuilder t m => [Policy] -> m (Event t GameAction)
+policyPeekPhaseWidget currentHand =
+  elId "div" "policy_phase" $ do
+    stopEvent <- button "Return policy tiles"
+    for_ currentHand $ \policy ->
+      elAttr' "img" ("src" =: case policy of
+          GoodPolicy -> static @"policy_liberal.png"
+          EvilPolicy -> static @"policy_fascist.png"
+      ) blank
+    return $ StopPeekingPolicies <$ stopEvent
 
 executionPhaseWidget :: DomBuilder t m => m (Event t GameAction)
 executionPhaseWidget = do

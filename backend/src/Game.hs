@@ -31,6 +31,7 @@ import Common.GameMessages
   )
 import Control.Applicative ((<|>))
 import Control.Lens hiding (element)
+import Control.Monad (mfilter)
 import Data.Function (on)
 import Data.Generics.Labels ()
 import Data.IntMap.Lazy (IntMap)
@@ -237,10 +238,9 @@ placeVote actorId vote gameOld@(Game {
     succeedVote game =
       game & #phase .~ PresidentDiscardPolicyPhase { chancellorId = chancellorCandidateId }
     failVote :: Game -> Random Game
-    failVote game =
-      fmap (nominateNextRegularPresident previousGovernment) $
-      advanceElectionTracker $
-      game
+    failVote game = do
+      (game, chaos) <- advanceElectionTracker game
+      pure $ nominateNextRegularPresident (mfilter (const $ not chaos) previousGovernment) game
 placeVote _actorId _vote gameOld =
   return (gameOld, Error "Cannot vote outside of VotePhase")
 
@@ -271,11 +271,11 @@ discardPolicy policyIndex gameOld =
       return $ withGameEvent ChancellorDiscardedPolicy $
         case policy of
           GoodPolicy ->
-            endGovernment chancellorId gameNew
+            endElectedGovernmentWithTermLimits chancellorId gameNew
           EvilPolicy ->
             case presidentialPowerPhase chancellorId gameNew of
               Just gamePhase -> gameNew & #phase .~ gamePhase
-              Nothing -> endGovernment chancellorId gameNew
+              Nothing -> endElectedGovernmentWithTermLimits chancellorId gameNew
     updateGameAfterDiscard _game =
       return (gameOld, Error "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
 
@@ -304,7 +304,7 @@ stopPeekingPolicies game@(Game {
   phase = PolicyPeekPhase { chancellorId }
 }) =
   withGameEvent ChancellorDiscardedPolicy $
-  endGovernment chancellorId $
+  endElectedGovernmentWithTermLimits chancellorId $
   game
 stopPeekingPolicies game =
   (game, Error "Cannot stop peeking policies outside of PolicyPeekPhase")
@@ -314,7 +314,7 @@ executePlayer playerId game@(Game {
   phase = ExecutionPhase { chancellorId }
 }) =
   withGameEvent PlayerKilled $
-  endGovernment chancellorId $
+  endElectedGovernmentWithTermLimits chancellorId $
   game & #players . ix playerId . #alive .~ False
 executePlayer _playerId game =
   (game, Error "Cannot execute a player outside of ExecutionPhase")
@@ -336,12 +336,15 @@ acceptVeto :: Game -> Random (Game, GameEvent)
 acceptVeto game@(Game {
   cardPile = _policy1 : _policy2 : cardPileTail,
   phase = PendingVetoPhase { chancellorId }
-}) =
-  fmap (withGameEvent VetoAccepted) $
-  (shuffleDrawPileIfNeccessary =<<) $
-  advanceElectionTracker $
-  endGovernment chancellorId $
-  game & #cardPile .~ cardPileTail
+}) = do
+  game <- pure $ game & #cardPile .~ cardPileTail
+  (game, chaos) <- advanceElectionTracker game
+  game <- shuffleDrawPileIfNeccessary game
+  game <-
+    if chaos
+    then pure $ nominateNextRegularPresident Nothing game
+    else pure $ endElectedGovernmentWithTermLimits chancellorId game
+  pure $ withGameEvent VetoAccepted game
 acceptVeto game =
   return (game, Error "Cannot accept veto outside of PendingVetoPhase")
 
@@ -369,13 +372,11 @@ alivePlayers game =
   view #players $
   game
 
-advanceElectionTracker :: Game -> Random Game
+advanceElectionTracker :: Game -> Random (Game, Bool)
 advanceElectionTracker game@(Game { electionTracker }) =
   if electionTracker < 2
-  then return $ game & #electionTracker %~ (+1)
-  else throwIntoChaos game
-  where
-    throwIntoChaos game = fst <$> enactTopPolicy game -- TODO reset eligibility
+  then return (game & #electionTracker %~ (+1), False)
+  else ((, True) . fst) <$> enactTopPolicy game
 
 enactTopPolicy :: Game -> Random (Game, Policy)
 enactTopPolicy game@(Game { cardPile = policy : cardPileTail }) =
@@ -403,8 +404,8 @@ shuffleDrawPileIfNeccessary game =
     return $ game & #cardPile .~ drawPile
   else return game
 
-endGovernment :: Int -> Game -> Game
-endGovernment chancellorId game =
+endElectedGovernmentWithTermLimits :: Int -> Game -> Game
+endElectedGovernmentWithTermLimits chancellorId game =
   let government = Government {
     presidentId = game ^. #presidentId,
     chancellorId

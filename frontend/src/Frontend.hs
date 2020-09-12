@@ -104,21 +104,21 @@ gameWidget gameUpdate =
     elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
     phaseDependentAction <- elId "div" "phase_dependent" $
-      fmap switchDyn $
-      widgetHold
-        nominateChancellorPhaseWidget
-        (
-          updated $
-          fmap phaseDependentWidget $
-          gameView
-        )        
-      -- switchHold never =<<
-      -- dyn
+      -- fmap switchDyn $
+      -- widgetHold
+      --   nominateChancellorPhaseWidget
       --   (
-      --     phaseDependentWidget
-      --     <$>
+      --     updated $
+      --     fmap phaseDependentWidget $
       --     gameView
       --   )
+      switchHold never =<<
+      dyn
+        (
+          phaseDependentWidget
+          <$>
+          gameView
+        )
     pure $ leftmost [playerSelect, phaseDependentAction]
   where
     gameView :: Dynamic t GameView
@@ -322,7 +322,7 @@ button :: DomBuilder t m => Text -> m (Event t ())
 button label =
   fmap (domEvent Click) $
   fmap fst $
-  el' "button" (text label)
+  elAttr' "button" ("type" =: "button") (text label)
 
 elId :: DomBuilder t m => Text -> Text -> m a -> m a
 elId elementTag i child = snd <$> elId' elementTag i child

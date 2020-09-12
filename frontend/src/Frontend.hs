@@ -77,9 +77,10 @@ lobbyWidget lobbyView =
       ]
 
 gameWidget ::
+  forall t m.
   (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
-  Dynamic t GameView ->  m (Event t GameAction)
-gameWidget gameView =
+  Dynamic t GameUpdate ->  m (Event t GameAction)
+gameWidget gameUpdate =
   elId "div" "board" $ do
     playerSelect :: Event t GameAction <- playerList gameView
     imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
@@ -115,6 +116,9 @@ gameWidget gameView =
           gameView
         )
     pure playerSelect
+  where
+    gameView :: Dynamic t GameView
+    gameView = view #gameView <$> gameUpdate
 
 playerList ::
   forall t m.

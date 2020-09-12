@@ -28,8 +28,11 @@ instance ToJSON LobbyView where
 lobbyViewInitial :: LobbyView
 lobbyViewInitial = LobbyView []
 
-data GameUpdate =
-  GameUpdate GameView (Maybe GameEvent)
+data GameUpdate = GameUpdate
+  {
+    gameView :: GameView,
+    gameEvent :: (Maybe GameEvent)
+  }
   deriving stock (Generic)
 instance FromJSON GameUpdate
 instance ToJSON GameUpdate where

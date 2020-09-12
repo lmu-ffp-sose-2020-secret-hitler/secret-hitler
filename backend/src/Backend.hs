@@ -206,10 +206,10 @@ answerGameToServer _id _payload stateOld = do
 gameMessage :: Game -> Maybe GameEvent -> Int -> StateFromServer
 gameMessage game event playerId =
   GameFromServer $
-  GameUpdate (gameView game playerId) (event)
+  GameUpdate (createGameView game playerId) (event)
 
-gameView :: Game -> Int -> GameView
-gameView game@(Game {
+createGameView :: Game -> Int -> GameView
+createGameView game@(Game {
   phase,
   goodPolicyCount,
   evilPolicyCount,

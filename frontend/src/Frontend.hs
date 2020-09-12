@@ -101,7 +101,21 @@ gameWidget gameUpdate =
           gameView
         )
         blank
-    elAttr "img" ("src" =: static @"role_liberal.png" <> "id" =: "identity") blank
+    elDynAttr--
+      "img"
+      (
+        fmap
+          (\role ->
+            "id" =: "identity" <>
+            "src" =: case role of
+              GoodRole -> static @"role_liberal.png"
+              EvilRole -> static @"role_fascist.png"
+              EvilLeaderRole -> static @"role_hitler.png"
+          ) $
+        fmap (view #playerRole) $
+        gameView
+      )
+      blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
     phaseDependentAction :: Event t GameAction <- elId "div" "phase_dependent" $
       -- fmap switchDyn $
@@ -120,7 +134,7 @@ gameWidget gameUpdate =
           gameView
         )
     -- display =<< (holdDyn StopPeekingPolicies phaseDependentAction)
-    pure $ leftmost [playerSelect, phaseDependentAction]--
+    pure $ leftmost [playerSelect, phaseDependentAction]
   where
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
@@ -201,12 +215,12 @@ discardPolicyPhaseWidget currentHand makeGameAction vetoWidget =
 policyPeekPhaseWidget :: DomBuilder t m => [Policy] -> m (Event t GameAction)
 policyPeekPhaseWidget currentHand =
   elId "div" "policy_phase" $ do
-    stopEvent <- button "Return policy tiles"
     for_ currentHand $ \policy ->
       elAttr' "img" ("src" =: case policy of
           GoodPolicy -> static @"policy_liberal.png"
           EvilPolicy -> static @"policy_fascist.png"
       ) blank
+    stopEvent <- button "Return policy tiles"
     return $ StopPeekingPolicies <$ stopEvent
 
 executionPhaseWidget :: DomBuilder t m => m (Event t GameAction)
@@ -268,6 +282,8 @@ playerList gameView =
       (\(GameView {phase, playerId, presidentId}) ->
         case phase of
           NominateChancellorPhase {}
+            | playerId == presidentId -> True
+          ExecutionPhase {}
             | playerId == presidentId -> True
           _ -> False
       )

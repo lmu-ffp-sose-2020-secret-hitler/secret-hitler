@@ -237,7 +237,6 @@ withGameEvent = flip (,)
 
 nominateChancellor :: Int -> Game -> (Game, GameEvent)
 nominateChancellor chancellorCandidateId gameOld@(Game {
-  presidentId,
   phase = NominateChancellorPhase { previousGovernment }
 }) =
   if isEligible chancellorCandidateId gameOld

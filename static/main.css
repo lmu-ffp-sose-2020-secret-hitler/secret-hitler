@@ -14,7 +14,7 @@ body {
 #board {
     display: grid;
     max-width:
-        calc((100vh - var(--phase_height) - 2 * 1.2em - 4 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
+        calc((100vh - var(--phase_height) - 3 * 1.2em - 4 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
     grid-template-rows: repeat(3, auto);
     grid-template-columns: 684fr 3972fr 684fr;
     grid-template-areas:
@@ -125,13 +125,13 @@ img {
 }
 #event>.execution_notice {
     color: red;
-    font-weight: bold;
 }
 
 /* phase */
 
 #phase {
     grid-area: phase;
+    text-align: center;
 }
 #phase>div {
     display: flex;

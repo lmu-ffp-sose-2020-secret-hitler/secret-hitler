@@ -361,11 +361,11 @@ discardPolicy policyIndex gameOld =
       (gameNew, gameOverReason, policyEnacted) <- enactTopPolicy gameOld
       return $
         withGameEvent (ChancellorEnactedPolicy { chancellorId, policy = policyEnacted }) $
-        if | Just reason <- gameOverReason -> gameNew & #phase .~ GameOverPhase { reason }
-           | EvilPolicy <- policyEnacted,
+        if| Just reason <- gameOverReason -> gameNew & #phase .~ GameOverPhase { reason }
+          | EvilPolicy <- policyEnacted,
             Just gamePhase <- presidentialPowerPhase chancellorId gameNew ->
               gameNew & #phase .~ gamePhase
-           | otherwise -> endElectedGovernmentWithTermLimits chancellorId gameNew
+          | otherwise -> endElectedGovernmentWithTermLimits chancellorId gameNew
     updateGameAfterDiscard _game =
       return (gameOld, InvalidGameAction "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
 
@@ -375,19 +375,19 @@ discardPolicy policyIndex gameOld =
         playerCount = Map.size $ game ^. #players
         evilPolicyCount = game ^. #evilPolicyCount
       in
-      if | playerCount <= 6 ->
+      if| playerCount <= 6 ->
             case evilPolicyCount of
               3 -> Just $ PolicyPeekPhase chancellorId
               4 -> Just $ ExecutionPhase chancellorId
               5 -> Just $ ExecutionPhase chancellorId
               _ -> Nothing
-         | playerCount <= 8 ->
+        | playerCount <= 8 ->
             case evilPolicyCount of
               _ -> Nothing
-         | playerCount <= 8 ->
+        | playerCount <= 8 ->
             case evilPolicyCount of
               _ -> Nothing
-         | otherwise -> Nothing
+        | otherwise -> Nothing
 
 ----------------------------------------------------------------------------------------------------
 --    ____                   _      _               _     ____
@@ -458,9 +458,9 @@ acceptVeto game@(Game {
   (game, gameOverMaybe, policyEnacted) <- advanceElectionTracker game
   game <- shuffleDrawPileIfNeccessary game
   game <-
-    if | Just reason <- gameOverMaybe -> pure $ game & #phase .~ GameOverPhase { reason }
-       | isNothing policyEnacted -> pure $ endElectedGovernmentWithTermLimits chancellorId game
-       | otherwise -> pure $ nominateNextRegularPresident Nothing game
+    if| Just reason <- gameOverMaybe -> pure $ game & #phase .~ GameOverPhase { reason }
+      | isNothing policyEnacted -> pure $ endElectedGovernmentWithTermLimits chancellorId game
+      | otherwise -> pure $ nominateNextRegularPresident Nothing game
   pure $ withGameEvent VetoAccepted { presidentId, chancellorId, policyEnacted } game
 acceptVeto game =
   return (game, InvalidGameAction "Cannot accept veto outside of PendingVetoPhase")

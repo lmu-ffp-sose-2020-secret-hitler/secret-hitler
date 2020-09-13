@@ -117,8 +117,8 @@ gameWidget gameUpdate =
       )
       blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-    elId "div" "event" $
-      dynText $ (gameUpdateEventText) <$> gameUpdate
+    elId "div" "event" $ do
+      dyn_ $ gameUpdateEventText <$> gameUpdate
     phaseDependentAction <- elId "div" "phase" $
       -- fmap switchDyn $
       -- widgetHold
@@ -141,7 +141,7 @@ gameWidget gameUpdate =
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
 
-gameUpdateEventText :: GameUpdate -> Text
+gameUpdateEventText :: DomBuilder t m => GameUpdate -> m ()
 gameUpdateEventText gameUpdate =
   let
     game = gameUpdate ^. #gameView
@@ -152,40 +152,55 @@ gameUpdateEventText gameUpdate =
     playerName playerId = fromMaybe "" ((view #name) <$> player playerId)
   in
   case gameUpdate ^. #gameEvent of
-    Nothing -> ""
-    Just ChancellorNominated { presidentialCandidateId, chancellorCandidateId } ->
-      "Presidential Candidate " <> playerName presidentialCandidateId
-      <> " nominated " <> playerName chancellorCandidateId <> " for the office of chancellor."
+    Nothing -> blank
+    Just ChancellorNominated { presidentialCandidateId, chancellorCandidateId } -> do
+      text $ "Presidential Candidate " <> playerName presidentialCandidateId
+        <> " nominated " <> playerName chancellorCandidateId 
+        <> " for the office of chancellor."
+      el "br" blank
+      text "Do you support the proposed government?"
     Just VotePlaced { playerId, vote } | playerId == myId ->
-      "You vote " <> (if vote then "for" else "against") <> " the proposed government."
-    Just VotePlaced {} -> ""
+      text $ "You voted " <> (if vote then "for" else "against")
+        <> " the proposed government, but you can still change your mind."
+    Just VotePlaced {} -> blank
     Just VoteSucceeded { presidentId, chancellorId } ->
-      playerName presidentId <> " and " <> playerName chancellorId
-      <> " were as President and Chancellor."
-    Just VoteFailed { presidentialCandidateId, chancellorCandidateId, policyEnacted } ->
-      playerName presidentialCandidateId <> " and " <> playerName chancellorCandidateId
-      <> " were not elected as President and Chancellor."
+      text $ playerName presidentId <> " and " <> playerName chancellorId
+        <> " were as President and Chancellor."
+    Just VoteFailed { presidentialCandidateId, chancellorCandidateId, policyEnacted } -> do
+      text $ playerName presidentialCandidateId <> " and " <> playerName chancellorCandidateId
+        <> " were not elected as President and Chancellor."
+      chaosText policyEnacted
     Just PresidentDiscardedPolicy { presidentId } ->
-      "President " <> playerName presidentId <> " discarded a policy."
+      text $ "President " <> playerName presidentId <> " discarded a policy."
     Just ChancellorEnactedPolicy { chancellorId, policy } ->
-      "Chancellor " <> playerName chancellorId <> " enacted a " <> policyText policy <> "."
+      text $ "Chancellor " <> playerName chancellorId <> " enacted a " <> policyText policy <> "."
     Just PresidentStoppedPeekingPolicies { presidentId } ->
-      "President " <> playerName presidentId <> " took a peek at the next policies."
+      text $ "President " <> playerName presidentId <> " took a peek at the next policies."
     Just PlayerKilled { presidentId, playerId } ->
-      "President " <> playerName presidentId <> " executed " <> playerName playerId <> "."
+      text $ "President " <> playerName presidentId <> " executed " <> playerName playerId <> "."
     Just VetoProposed { chancellorId, presidentId } ->
-      "Chancellor " <> playerName chancellorId <> " proposed a veto to President "
-      <> playerName presidentId <> "."
-    Just VetoAccepted { presidentId, chancellorId, policyEnacted } ->
-      "President " <> playerName presidentId <> " accepted the veto proposed by Chancellor "
-      <> playerName chancellorId <> "."
+      text $ "Chancellor " <> playerName chancellorId <> " proposed a veto to President "
+        <> playerName presidentId <> "."
+    Just VetoAccepted { presidentId, chancellorId, policyEnacted } -> do
+      text $ "President " <> playerName presidentId <> " accepted the veto proposed by Chancellor "
+        <> playerName chancellorId <> "."
+      chaosText policyEnacted
     Just VetoRejected { presidentId, chancellorId } ->
-      "President " <> playerName presidentId <> " rejected the veto proposed by Chancellor "
-      <> playerName chancellorId <> "."
-    Just InvalidGameAction { message } -> "Invalid action: " <> message
+      text $ "President " <> playerName presidentId <> " rejected the veto proposed by Chancellor "
+        <> playerName chancellorId <> "."
+    Just InvalidGameAction { message } -> text $ "Invalid action: " <> message
   where
+    policyText :: Policy -> Text
     policyText GoodPolicy = "liberal policy"
     policyText EvilPolicy = "fascist policy"
+    chaosText :: DomBuilder t m => Maybe Policy -> m ()
+    chaosText policyEnacted = 
+      case policyEnacted of
+        Nothing -> pure ()
+        Just policy -> do
+          el "br" blank
+          text $ "Because of this the country was thrown into chaos, resulting in a "
+            <> policyText policy <> "."
 
 phaseDependentWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>

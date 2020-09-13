@@ -8,7 +8,7 @@ Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Sp
 
 ## License
 
-* The Images and Game Idea are borrowed from http://www.secrethitler.com and licensed under [Creative Commons license BY–NC–SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+* The images and rules are borrowed from http://www.secrethitler.com and licensed under [Creative Commons license BY–NC–SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 * The Code is licensed under [GNU General Public License v3.0](https://www.gnu.org/licenses/)
 
 ## Build

@@ -1,25 +1,32 @@
 module Random (
   Random,
+  RandomT,
   runRandomIO,
   withStdGen,
 ) where
 
-import Control.Monad.State.Strict (State, evalState, get, put)
+import Control.Monad.State.Strict (StateT, evalStateT, get, put)
+import Data.Functor.Identity (Identity, runIdentity)
 import System.Random (StdGen, newStdGen)
 
-newtype Random a = Random (State StdGen a)
+newtype RandomT m a = RandomT (StateT StdGen m a)
   deriving newtype (Functor, Applicative, Monad)
 
+type Random = RandomT Identity
+
 runRandomIO :: Random a -> IO a
-runRandomIO monad =
-  newStdGen >>= (return . evalRandom monad)
+runRandomIO = fmap runIdentity . runRandomIOT
 
-evalRandom :: Random a -> StdGen -> a
-evalRandom (Random stateM) = evalState stateM
+runRandomIOT :: Monad m => RandomT m a -> IO (m a)
+runRandomIOT monad =
+  newStdGen >>= (return . evalRandomT monad)
 
-withStdGen :: (StdGen -> (a, StdGen)) -> Random a
+evalRandomT :: Monad m => RandomT m a -> StdGen -> m a
+evalRandomT (RandomT stateM) = evalStateT stateM
+
+withStdGen :: Monad m => (StdGen -> (a, StdGen)) -> RandomT m a
 withStdGen f = do
-  rngOld <- Random get
+  rngOld <- RandomT get
   let (result, rngNew) = f rngOld
-  Random $ put rngNew
+  RandomT $ put rngNew
   return result

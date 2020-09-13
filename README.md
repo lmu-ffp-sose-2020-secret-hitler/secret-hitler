@@ -13,9 +13,7 @@ Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Sp
 
 ## Build
 
-1. [Install Obelisk](https://github.com/obsidiansystems/obelisk#installing-obelisk).
-
-2. Execute
+Execute
 
 ```shell
 mkdir test-app
@@ -27,6 +25,8 @@ cp -r config test-app
 as described on https://github.com/obsidiansystems/obelisk#locally.
 
 ## Develop
+
+[Install Obelisk](https://github.com/obsidiansystems/obelisk#installing-obelisk). The following options are available.
 
 - Execute `ob run` for a ghcid window. The web server is updated automatically. `-- $>` code comments are supported.
 - Execute `ob repl` for a ghci prompt. Load a module using `:l Game`.

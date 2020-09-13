@@ -5,11 +5,16 @@
 
 body {
     font: 16px / 1.2 sans-serif;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap_size);
+    align-items: center;
 }
 
 #board {
     display: grid;
-    max-width: calc((100vh - var(--phase_height) - 3 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
+    max-width:
+        calc((100vh - var(--phase_height) - 2 * 1.2em - 4 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
     grid-template-rows: repeat(3, auto);
     grid-template-columns: 684fr 3972fr 684fr;
     grid-template-areas:
@@ -22,18 +27,50 @@ body {
     gap: var(--gap_size);
 }
 
-#event {
-    grid-area: event;
-}
-
-#identity {
-    grid-area: identity;
-    align-self: start;
-}
-
 img {
     max-width: 100%;
 }
+
+/* player lists */
+
+#player_list {
+    grid-area: player_list;
+    justify-self: stretch;
+    align-self: stretch;
+}
+#player_list_lobby {
+    width: 10em;
+}
+#player_list>div:nth-child(odd), #player_list_lobby>div:nth-child(odd) {
+    background: #ddd;
+}
+#player_list>div:nth-child(even), #player_list_lobby>div:nth-child(even) {
+    background: #eee;
+}
+#player_list>.dead {
+    color: #999;
+}
+#player_list img, #player_list .role {
+    height: 1.18em;
+    float: right;
+    cursor: help;
+}
+#chancellor_mark {
+    margin-right: .4em;
+}
+#player_list .previous {
+    filter: opacity(.5);
+}
+#player_list.select>div:not(.dead):not(.ineligible) {
+    cursor: pointer;
+}
+#player_list.select>div:hover:not(.dead):not(.ineligible) {
+    background: #444;
+    color: white;
+    padding-left: .8em;
+}
+
+/* fascist policies board */
 
 #policies_fascist {
     grid-area: board_fascist;
@@ -44,6 +81,13 @@ img {
     justify-items: center;
     align-items: center;
 }
+
+#identity {
+    grid-area: identity;
+    align-self: start;
+}
+
+/* liberal policies board */
 
 #policies_liberal {
     grid-area: board_liberal;
@@ -69,42 +113,14 @@ img {
     grid-area: 2 / 2 / 3 / 3;
 }
 
-#player_list {
-    grid-area: player_list;
-    justify-self: stretch;
-    align-self: stretch;
+/* event */
+
+#event {
+    grid-area: event;
+    text-align: center;
 }
-#player_list_lobby {
-    width: 10em;
-}
-#player_list>div:nth-child(odd), #player_list_lobby>div:nth-child(odd) {
-    background: #ddd;
-}
-#player_list>div:nth-child(even), #player_list_lobby>div:nth-child(even) {
-    background: #eee;
-}
-.dead {
-    color: #999;
-}
-#player_list img, #player_list .role {
-    height: 1.18em;
-    float: right;
-    cursor: help;
-}
-#chancellor_mark {
-    margin-right: .4em;
-}
-#player_list .previous {
-    filter: opacity(.5);
-}
-#player_list.select>div:not(.dead):not(.ineligible) {
-    cursor: pointer;
-}
-#player_list.select>div:hover:not(.dead):not(.ineligible) {
-    background: #444;
-    color: white;
-    padding-left: .8em;
-}
+
+/* phase */
 
 #phase {
     grid-area: phase;
@@ -115,6 +131,11 @@ img {
     gap: var(--gap_size);
 }
 
+
+button {
+    align-self: center;
+}
+
 #vote_phase>img {
     width: calc(var(--phase_height) * 941 / 648);
     cursor: pointer;
@@ -123,8 +144,4 @@ img {
 #policy_phase>img {
     width: calc(var(--phase_height) * 439 / 671);
     cursor: pointer;
-}
-
-button {
-    align-self: center;
 }

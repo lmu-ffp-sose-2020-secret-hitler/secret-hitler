@@ -84,23 +84,9 @@ gameWidget ::
 gameWidget gameUpdate =
   elId "div" "board" $ do
     playerSelect <- fmap (GameAction <$>) $ playerList gameView
-    imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
     imgStyle @"board_fascist_5_6.png" "grid-area: board_fascist" blank
     elId "div" "policies_fascist" $
       dyn_ ((policyTiles @"policy_fascist.png" . view #evilPolicyCount) <$> gameView)
-    imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
-    elId "div" "policies_liberal" $
-      dyn_ ((policyTiles @"policy_liberal.png" . view #goodPolicyCount) <$> gameView)
-    elId "div" "election_tracker" $
-      elDynAttr
-        "img"
-        (
-          fmap
-            (\i -> "src" =: static @"circle.svg" <> "style" =: gridArea (1 + 2 * i) 1) $
-          fmap (view #electionTracker) $
-          gameView
-        )
-        blank
     elDynAttr
       "img"
       (
@@ -116,27 +102,41 @@ gameWidget gameUpdate =
         gameView
       )
       blank
+    imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
+    imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
+    elId "div" "policies_liberal" $
+      dyn_ ((policyTiles @"policy_liberal.png" . view #goodPolicyCount) <$> gameView)
+    elId "div" "election_tracker" $
+      elDynAttr
+        "img"
+        (
+          fmap
+            (\i -> "src" =: static @"circle.svg" <> "style" =: gridArea (1 + 2 * i) 1) $
+          fmap (view #electionTracker) $
+          gameView
+        )
+        blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
     elId "div" "event" $ do
       dyn_ $ gameUpdateEventText <$> gameUpdate
-    phaseDependentAction <- elId "div" "phase" $
+    phaseAction <- elId "div" "phase" $
       -- fmap switchDyn $
       -- widgetHold
       --   nominateChancellorPhaseWidget
       --   (
       --     updated $
-      --     fmap phaseDependentWidget $
+      --     fmap phaseWidget $
       --     gameView
       --   )
       switchHold never =<<
       dyn
         (
-          phaseDependentWidget
+          phaseWidget
           <$>
           gameView
         )
-    -- display =<< (holdDyn StopPeekingPolicies phaseDependentAction)
-    pure $ leftmost [playerSelect, phaseDependentAction]
+    -- display =<< (holdDyn StopPeekingPolicies phaseAction)
+    pure $ leftmost [playerSelect, phaseAction]
   where
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
@@ -202,10 +202,10 @@ gameUpdateEventText gameUpdate =
           text $ "Because of this the country was thrown into chaos, resulting in a "
             <> policyText policy <> "."
 
-phaseDependentWidget ::
+phaseWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>
   GameView -> m (Event t ActionFromClient)
-phaseDependentWidget
+phaseWidget
   (GameView {phase, playerId, presidentId, currentHand, vetoUnlocked})
   = case phase of
     NominateChancellorPhase {}
@@ -375,7 +375,7 @@ playerList gameView =
         fmap (view #chancellorId) $
         previousGovernmentGet phase
         = chancellorMark Past
-      | otherwise = pure ()
+      | otherwise = blank
     presidentMark :: TimeOfGovernment -> m ()
     presidentMark timeOfGovernment =
       elAttr
@@ -421,7 +421,7 @@ playerList gameView =
     roleDom :: Maybe Role -> m ()
     roleDom =
       \case
-        Nothing -> pure ()
+        Nothing -> blank
         Just role ->
           elAttr
             "div"
@@ -559,7 +559,7 @@ application baseUri =
       widgetHold
         widgetInitial
         widgetDynamic
-    pure ()
+    blank
 
 webSocketUri :: Maybe Text -> Either (Maybe Text) URI
 webSocketUri r =

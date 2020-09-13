@@ -120,6 +120,8 @@ gameWidget gameUpdate =
       )
       blank
     imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
+    elId "div" "draw_count" $
+      dyn_ (fmap displayIfPositive $ fmap (view #drawPileSize) $ gameView)
     imgStyle @"board_liberal.png" "grid-area: board_liberal" blank
     elId "div" "policies_liberal" $
       dyn_ ((policyTiles @"policy_liberal.png" . view #goodPolicyCount) <$> gameView)
@@ -134,6 +136,8 @@ gameWidget gameUpdate =
         )
         blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
+    elId "div" "discard_count" $
+      dyn_ (fmap displayIfPositive $ fmap (view #discardPileSize) $ gameView)
     elId "div" "event" $ do
       dyn_ $ gameUpdateEventText <$> gameUpdate
     phaseAction <- elId "div" "phase" $
@@ -157,6 +161,14 @@ gameWidget gameUpdate =
   where
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
+    displayIfPositive :: Int -> m ()
+    displayIfPositive n =
+      if n > 0
+      then
+        do
+          elAttr "img" ("src" =: static @"policy_reverse.png") blank
+          el "div" $ text $ toStrict $ toLazyText $ decimal $ n
+      else blank
 
 gameUpdateEventText :: DomBuilder t m => GameUpdate -> m ()
 gameUpdateEventText gameUpdate =

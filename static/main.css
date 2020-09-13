@@ -91,6 +91,25 @@ img {
     align-self: start;
 }
 
+#draw_count {
+    grid-area: draw_pile;
+}
+#draw_count, #discard_count {
+    text-shadow: #000 5px 5px 10px;
+    font-size: 8vh;
+    display: grid;
+    grid-template-rows: 1fr;
+    grid-template-columns: 123fr 439fr 122fr;
+    grid-template-areas: ". card .";
+    align-items: center;
+}
+#draw_count>*, #discard_count>* {
+    grid-area: card;
+}
+#draw_count>div, #discard_count>div {
+    text-align: center;
+}
+
 /* liberal policies board */
 
 #policies_liberal {
@@ -115,6 +134,10 @@ img {
 }
 #election_tracker>img {
     grid-area: 2 / 2 / 3 / 3;
+}
+
+#discard_count {
+    grid-area: discard_pile;
 }
 
 /* event */

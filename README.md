@@ -13,7 +13,8 @@ Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Sp
 
 ## Build
 
-Execute
+1. [Install Nix](https://nixos.org).
+2. Execute
 
 ```shell
 mkdir test-app

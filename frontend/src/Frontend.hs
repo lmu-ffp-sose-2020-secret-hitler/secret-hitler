@@ -79,9 +79,9 @@ lobbyWidget lobbyView = do
         if| playerCount < 5 ->
               "disabled" =: "" <>
               "title" =: "You need at least 5 players to start the game"
-          | playerCount > 10 ->
+          | playerCount > 6 ->
               "disabled" =: "" <>
-              "title" =: "This game can be played by at most 10 players"
+              "title" =: "This game can be played by at most 6 players"
           | otherwise -> Map.empty
       ) <$>
       length <$>

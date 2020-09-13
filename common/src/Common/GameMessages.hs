@@ -1,16 +1,30 @@
 module Common.GameMessages where
 
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON, ToJSON, ToJSONKey, FromJSONKey)
 import Data.Text (Text)
-import Data.IntMap.Strict
+import Data.Map.Strict (Map)
 import GHC.Generics (Generic)
+
+newtype PlayerId =
+  PlayerId Int
+  deriving stock (Generic)
+  deriving newtype (
+    Enum,
+    Eq,
+    FromJSONKey,
+    Ord,
+    Show,
+    ToJSONKey
+  )
+instance FromJSON PlayerId
+instance ToJSON PlayerId
 
 data GameView = GameView {
   -- The ID of the player that views this game
-  playerId :: Int,
+  playerId :: PlayerId,
   -- The Role of the player that views this game
   playerRole :: Role,
-  players :: IntMap PlayerView,
+  players :: Map PlayerId PlayerView,
   phase :: GamePhase,
   -- The current hand is empty unless the player is president or chancellor in the correct phase
   currentHand :: [Policy],
@@ -18,7 +32,7 @@ data GameView = GameView {
   discardPileSize :: Int,
   goodPolicyCount :: Int,
   evilPolicyCount :: Int,
-  presidentId :: Int,
+  presidentId :: PlayerId,
   electionTracker :: Int,
   vetoUnlocked :: Bool
 } deriving stock (Generic)
@@ -61,22 +75,22 @@ data GamePhase =
   } |
   VotePhase {
     previousGovernment :: Maybe Government,
-    chancellorCandidateId :: Int
+    chancellorCandidateId :: PlayerId
   } |
   PresidentDiscardPolicyPhase {
-    chancellorId :: Int
+    chancellorId :: PlayerId
   } |
   ChancellorDiscardPolicyPhase {
-    chancellorId :: Int
+    chancellorId :: PlayerId
   } |
   PolicyPeekPhase {
-    chancellorId :: Int
+    chancellorId :: PlayerId
   } |
   ExecutionPhase {
-    chancellorId :: Int
+    chancellorId :: PlayerId
   } |
   PendingVetoPhase {
-    chancellorId :: Int
+    chancellorId :: PlayerId
   } |
   GameOverPhase {
     reason :: GameOverReason
@@ -105,8 +119,8 @@ isVotePhase VotePhase {} = True
 isVotePhase _ = False
 
 data Government = Government {
-  presidentId :: Int,
-  chancellorId :: Int
+  presidentId :: PlayerId,
+  chancellorId :: PlayerId
 } deriving stock (Generic)
 instance FromJSON Government
 instance ToJSON Government
@@ -123,12 +137,12 @@ policyAlignment GoodPolicy = Good
 policyAlignment EvilPolicy = Evil
 
 data GameAction =
-  NominateChancellor Int |
+  NominateChancellor PlayerId |
   PlaceVote Bool |
   PresidentDiscardPolicy Int |
   ChancellorDiscardPolicy Int |
   StopPeekingPolicies |
-  ExecutePlayer Int |
+  ExecutePlayer PlayerId |
   ProposeVeto |
   AcceptVeto |
   RejectVeto
@@ -138,48 +152,48 @@ instance ToJSON GameAction
 
 data GameEvent =
   ChancellorNominated {
-    presidentialCandidateId :: Int,
-    chancellorCandidateId :: Int
+    presidentialCandidateId :: PlayerId,
+    chancellorCandidateId :: PlayerId
   } |
   VotePlaced {
-    playerId :: Int,
+    playerId :: PlayerId,
     vote :: Bool
   } |
   VoteSucceeded {
-    presidentId :: Int,
-    chancellorId :: Int
+    presidentId :: PlayerId,
+    chancellorId :: PlayerId
   } |
   VoteFailed {
-    presidentialCandidateId :: Int,
-    chancellorCandidateId :: Int,
+    presidentialCandidateId :: PlayerId,
+    chancellorCandidateId :: PlayerId,
     policyEnacted :: Maybe Policy
   } |
   PresidentDiscardedPolicy {
-    presidentId :: Int
+    presidentId :: PlayerId
   } |
   ChancellorEnactedPolicy {
-    chancellorId :: Int,
+    chancellorId :: PlayerId,
     policy :: Policy
   } |
   PresidentStoppedPeekingPolicies {
-    presidentId :: Int
+    presidentId :: PlayerId
   } |
   PlayerKilled {
-    presidentId :: Int,
-    playerId :: Int
+    presidentId :: PlayerId,
+    playerId :: PlayerId
   } |
   VetoProposed {
-    presidentId :: Int,
-    chancellorId :: Int
+    presidentId :: PlayerId,
+    chancellorId :: PlayerId
   } |
   VetoAccepted {
-    presidentId :: Int,
-    chancellorId :: Int,
+    presidentId :: PlayerId,
+    chancellorId :: PlayerId,
     policyEnacted :: Maybe Policy
   } |
   VetoRejected {
-    presidentId :: Int,
-    chancellorId :: Int
+    presidentId :: PlayerId,
+    chancellorId :: PlayerId
   } |
   InvalidGameAction {
     message :: Text

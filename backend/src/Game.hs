@@ -28,6 +28,7 @@ import Common.GameMessages
     GameOverReason (..),
     GamePhase (..),
     Government (..),
+    PlayerId,
     Policy (..),
     Role (..),
   )
@@ -36,8 +37,8 @@ import Control.Lens hiding (element)
 import Control.Monad (mfilter)
 import Data.Function (on)
 import Data.Generics.Labels ()
-import Data.IntMap.Lazy (IntMap)
-import qualified Data.IntMap.Lazy as IntMap
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.List (minimumBy)
 import Data.Maybe (fromMaybe, isNothing)
 import Data.Monoid (Sum (Sum))
@@ -61,13 +62,13 @@ import VectorShuffling.Immutable (shuffle)
 data Game = Game {
   phase :: GamePhase,
   -- players includes dead players too.
-  players :: IntMap Player,
+  players :: Map PlayerId Player,
   -- The cardPile contains the drawPile and the currentHand
   cardPile :: [Policy],
   goodPolicyCount :: Int,
   evilPolicyCount :: Int,
-  presidentId :: Int,
-  regularPresidentId :: Int,
+  presidentId :: PlayerId,
+  regularPresidentId :: PlayerId,
   electionTracker :: Int
 } deriving stock (Generic)
 
@@ -84,9 +85,9 @@ currentHandSize (Game { phase }) = case phase of
   PolicyPeekPhase {} -> 3
   _ -> 0
 
-newGame :: IntMap Player -> [Policy] -> Game
+newGame :: Map PlayerId Player -> [Policy] -> Game
 newGame players drawPile =
-  let presidentId = fst $ (minimumBy (compare `on` (view #turnOrder) . snd)) $ IntMap.toList players in
+  let presidentId = fst $ (minimumBy (compare `on` (view #turnOrder) . snd)) $ Map.toList players in
   Game {
     phase = NominateChancellorPhase Nothing,
     players,
@@ -140,20 +141,20 @@ newPlayer name turnOrder role = Player {
 --
 ----------------------------------------------------------------------------------------------------
 
-generateRandomGame :: IntMap Text -> Random Game
+generateRandomGame :: Map PlayerId Text -> Random Game
 generateRandomGame playerNames = do
   players <- generateRandomPlayers playerNames
   drawPile <- generateRandomCardPile 6 11
   return $ newGame players drawPile
   where
-    generateRandomPlayers :: IntMap Text -> Random (IntMap Player)
+    generateRandomPlayers :: Map PlayerId Text -> Random (Map PlayerId Player)
     generateRandomPlayers playerNames = do
-      let playerCount = IntMap.size playerNames
+      let playerCount = Map.size playerNames
       turnOrders <- generateRandomTurnOrders playerCount
       roles <- generateRandomRoles playerCount
-      return $ IntMap.fromAscList $
+      return $ Map.fromAscList $
         zipWith3 (\(id, name) turnOrder role -> (id, newPlayer name turnOrder role))
-        (IntMap.toAscList playerNames) (Vector.toList turnOrders) (Vector.toList roles)
+        (Map.toAscList playerNames) (Vector.toList turnOrders) (Vector.toList roles)
     generateRandomTurnOrders :: Int -> Random (Vector Int)
     generateRandomTurnOrders playerCount =
       withStdGen $ shuffle (generate playerCount id)
@@ -192,12 +193,12 @@ generateRandomCardPile goodPolicyCount evilPolicyCount =
 --          |_|
 ----------------------------------------------------------------------------------------------------
 
-updateChecked :: Int -> GameAction -> Game -> Random (Game, GameEvent)
+updateChecked :: PlayerId -> GameAction -> Game -> Random (Game, GameEvent)
 updateChecked actorId action game
   | isPlayerAllowedToAct actorId game = update actorId action game
   | otherwise = return (game, InvalidGameAction $ "Player " <> Text.pack (show actorId) <> " is currently not allowed to act")
 
-isPlayerAllowedToAct :: Int -> Game -> Bool
+isPlayerAllowedToAct :: PlayerId -> Game -> Bool
 isPlayerAllowedToAct actorId game@(Game { phase }) =
   let actorIsPresident = actorId == game ^. #presidentId in
   case phase of
@@ -210,7 +211,7 @@ isPlayerAllowedToAct actorId game@(Game { phase }) =
     PendingVetoPhase {} -> actorIsPresident
     GameOverPhase {} -> False
 
-update :: Int -> GameAction -> Game -> Random (Game, GameEvent)
+update :: PlayerId -> GameAction -> Game -> Random (Game, GameEvent)
 update actorId action = do
   case action of
     NominateChancellor playerId -> return . nominateChancellor playerId
@@ -235,7 +236,7 @@ withGameEvent = flip (,)
 --
 ----------------------------------------------------------------------------------------------------
 
-nominateChancellor :: Int -> Game -> (Game, GameEvent)
+nominateChancellor :: PlayerId -> Game -> (Game, GameEvent)
 nominateChancellor chancellorCandidateId gameOld@(Game {
   presidentId,
   phase = NominateChancellorPhase { previousGovernment }
@@ -255,16 +256,16 @@ nominateChancellor chancellorCandidateId gameOld@(Game {
 nominateChancellor _playerId gameOld =
   (gameOld, InvalidGameAction "Cannot nominate a chancellor outside of NominateChancellorPhase")
 
-isEligible :: Int -> Game -> Bool
+isEligible :: PlayerId -> Game -> Bool
 isEligible chancellorCandidateId game@(Game {
   presidentId,
   phase = NominateChancellorPhase { previousGovernment }
 })
   | chancellorCandidateId == presidentId = False
-  | isNothing $ IntMap.lookup chancellorCandidateId (alivePlayers game) = False
+  | isNothing $ Map.lookup chancellorCandidateId (alivePlayers game) = False
   | Nothing <- previousGovernment = True
   | Just Government { presidentId, chancellorId } <- previousGovernment =
-    if IntMap.size (alivePlayers game) <= 5
+    if Map.size (alivePlayers game) <= 5
     then chancellorCandidateId /= chancellorId
     else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
 isEligible _chancellorCandidateId _game = False
@@ -278,7 +279,7 @@ isEligible _chancellorCandidateId _game = False
 --
 ----------------------------------------------------------------------------------------------------
 
-placeVote :: Int -> Bool -> Game -> Random (Game, GameEvent)
+placeVote :: PlayerId -> Bool -> Game -> Random (Game, GameEvent)
 placeVote playerId vote gameOld@(Game {
   phase = VotePhase { previousGovernment, chancellorCandidateId }
 }) =
@@ -293,9 +294,9 @@ placeVote playerId vote gameOld@(Game {
       (> Sum 0) <$>
       foldMap boolToSum <$>
       playerVoteResults game
-    playerVoteResults :: Game -> Maybe (IntMap Bool)
+    playerVoteResults :: Game -> Maybe (Map PlayerId Bool)
     playerVoteResults game = traverse (view #vote) (alivePlayers game)
-    boolToSum :: Bool -> Sum Integer
+    boolToSum :: Bool -> Sum Int
     boolToSum True = Sum 1
     boolToSum False = Sum (-1)
     succeedVote :: Game -> (Game, GameEvent)
@@ -368,10 +369,10 @@ discardPolicy policyIndex gameOld =
     updateGameAfterDiscard _game =
       return (gameOld, InvalidGameAction "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
 
-    presidentialPowerPhase :: Int -> Game -> Maybe GamePhase
+    presidentialPowerPhase :: PlayerId -> Game -> Maybe GamePhase
     presidentialPowerPhase chancellorId game =
       let
-        playerCount = IntMap.size $ game ^. #players
+        playerCount = Map.size $ game ^. #players
         evilPolicyCount = game ^. #evilPolicyCount
       in
       if | playerCount <= 6 ->
@@ -408,7 +409,7 @@ stopPeekingPolicies game@(Game {
 stopPeekingPolicies game =
   (game, InvalidGameAction "Cannot stop peeking policies outside of PolicyPeekPhase")
 
-executePlayer :: Int -> Game -> (Game, GameEvent)
+executePlayer :: PlayerId -> Game -> (Game, GameEvent)
 executePlayer playerId gameOld@(Game {
   presidentId,
   phase = ExecutionPhase { chancellorId }
@@ -483,9 +484,9 @@ rejectVeto game =
 --
 ----------------------------------------------------------------------------------------------------
 
-alivePlayers :: Game -> IntMap Player
+alivePlayers :: Game -> Map PlayerId Player
 alivePlayers game =
-  IntMap.filter (view #alive) $
+  Map.filter (view #alive) $
   view #players $
   game
 
@@ -534,7 +535,7 @@ shuffleDrawPileIfNeccessary game =
     return $ game & #cardPile .~ drawPile
   else return game
 
-endElectedGovernmentWithTermLimits :: Int -> Game -> Game
+endElectedGovernmentWithTermLimits :: PlayerId -> Game -> Game
 endElectedGovernmentWithTermLimits chancellorId game =
   let government = Government {
     presidentId = game ^. #presidentId,
@@ -550,10 +551,10 @@ nominateNextRegularPresident previousGovernment gameOld =
     & #regularPresidentId .~ presidentIdNew
     & #presidentId .~ presidentIdNew
   where
-    nextRegularPresidentId :: Game -> Int
+    nextRegularPresidentId :: Game -> PlayerId
     nextRegularPresidentId game =
       let president = getPresident game
-          alivePlayersList = IntMap.toList $ alivePlayers game in
+          alivePlayersList = Map.toList $ alivePlayers game in
       fst $
       fromMaybe (error "all players dying should not be possible") $
         (minimumMaybeOn snd $ filter ((president <) . snd) alivePlayersList)

@@ -1,14 +1,15 @@
 module Lobby where
 
+import Common.GameMessages (PlayerId)
 import Control.Lens
 import Data.Generics.Labels ()
-import Data.IntMap.Strict (IntMap)
-import qualified Data.IntMap.Strict as IntMap
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import GHC.Generics (Generic)
 
 data Lobby = Lobby {
-  players :: IntMap Player
+  players :: Map PlayerId Player
 } deriving stock (Generic)
 
 data Player = Player {
@@ -17,9 +18,9 @@ data Player = Player {
 
 newLobby :: Lobby
 newLobby = Lobby {
-  players = IntMap.empty
+  players = Map.empty
 }
 
-removePlayer :: Int -> Lobby -> Lobby
+removePlayer :: PlayerId -> Lobby -> Lobby
 removePlayer id lobbyOld =
   lobbyOld & #players . at id .~ Nothing

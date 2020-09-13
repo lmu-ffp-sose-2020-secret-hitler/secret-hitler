@@ -14,7 +14,7 @@ import Data.Maybe (fromMaybe)
 import GHC.TypeLits (Symbol)
 import Data.List.NonEmpty (nonEmpty)
 import Data.List (sortOn)
-import qualified Data.IntMap.Strict as IM
+import qualified Data.Map.Strict as Map
 import Data.Bool (bool)
 import Control.Monad (void)
 import Data.Text (Text)
@@ -147,13 +147,13 @@ gameUpdateEventText gameUpdate =
   let
     game = gameUpdate ^. #gameView
     myId = game ^. #playerId
-    player :: Int -> Maybe PlayerView
+    player :: PlayerId -> Maybe PlayerView
     player playerId = game ^. #players . at playerId
-    playerName :: Int -> Text
+    playerName :: PlayerId -> Text
     playerName playerId
       | playerId == myId = "you"
       | otherwise = fromMaybe "unknown player" ((view #name) <$> player playerId)
-    playerNameWithTitle :: Text -> Int -> Text
+    playerNameWithTitle :: Text -> PlayerId -> Text
     playerNameWithTitle title playerId
       | playerId == myId = "you"
       | otherwise = title <> " " <> playerName playerId
@@ -349,11 +349,11 @@ playerList gameView =
       simpleList
         (
           fmap (sortOn $ view $ _2 . #turnOrder) $
-          fmap IM.toList $
+          fmap Map.toList $
           fmap (view #players) $
           gameView
         )
-        (\(idAndPlayer :: Dynamic t (Int, PlayerView)) ->
+        (\(idAndPlayer :: Dynamic t (PlayerId, PlayerView)) ->
           let player = snd <$> idAndPlayer
           in
             fmap (tagDyn $ fst <$> idAndPlayer) $
@@ -409,7 +409,7 @@ playerList gameView =
             "img"
             ("src" =: bool (static @"nein_ballot.png") (static @"ja_ballot.png") vote)
             blank
-    markDom :: Int -> GameView -> m ()
+    markDom :: PlayerId -> GameView -> m ()
     markDom playerId (GameView {presidentId, phase})
       | playerId == presidentId = presidentMark Present
       | fromMaybe False $ (playerId ==) <$> chancellorIdGet phase =
@@ -453,7 +453,7 @@ playerList gameView =
             Past -> "class" =: "previous"
         )
         blank
-    chancellorIdGet :: GamePhase -> (Maybe Int)
+    chancellorIdGet :: GamePhase -> (Maybe PlayerId)
     chancellorIdGet =
       \case
         NominateChancellorPhase {} -> Nothing
@@ -481,7 +481,7 @@ playerList gameView =
       )
       <$>
       gameView
-    wrapInGameAction :: GamePhase -> Int -> Maybe GameAction
+    wrapInGameAction :: GamePhase -> PlayerId -> Maybe GameAction
     wrapInGameAction phase playerId =
       ($ playerId)
       <$>

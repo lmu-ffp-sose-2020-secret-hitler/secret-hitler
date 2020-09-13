@@ -5,6 +5,7 @@ import Common.GameMessages (
     GameEvent (..),
     GamePhase (..),
     GameView (..),
+    PlayerId (..),
     PlayerView (..),
     Role (..),
     isVotePhase,
@@ -20,8 +21,8 @@ import Data.ByteString.Lazy (toStrict)
 import Data.Dependent.Sum (DSum (..))
 import Data.Foldable (traverse_)
 import Data.Functor.Identity (Identity (Identity))
-import Data.IntMap.Strict (IntMap)
-import qualified Data.IntMap.Strict as IntMap
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Text as Text
 import Data.Text.Encoding (decodeUtf8)
@@ -51,7 +52,7 @@ backend = Backend
   }
 
 data ServerState = ServerState {
-  connections :: IntMap WS.Connection,
+  connections :: Map PlayerId WS.Connection,
   gameState :: GameState
 } deriving stock (Generic)
 
@@ -61,7 +62,7 @@ data GameState =
 
 newServerState :: ServerState
 newServerState = ServerState {
-  connections = IntMap.empty,
+  connections = Map.empty,
   gameState = LobbyState Lobby.newLobby
 }
 
@@ -91,10 +92,10 @@ application stateMVar pending = do
       `catch` (putStrLn . show :: SomeException -> IO ())
       `finally` (removeClient id stateMVar)
 
-nextId :: IntMap b -> Int
-nextId map = fromMaybe 0 (succ <$> fst <$> IntMap.lookupMax map)
+nextId :: Map PlayerId a -> PlayerId
+nextId map = fromMaybe (PlayerId 0) (succ <$> fst <$> Map.lookupMax map)
 
-removeClient :: Int -> MVar ServerState -> IO ()
+removeClient :: PlayerId -> MVar ServerState -> IO ()
 removeClient id stateMVar = do
   putStrLn $ "Client " ++ show id ++ " disconnected"
   modifyMVar_ stateMVar $ \stateOld -> do
@@ -102,7 +103,7 @@ removeClient id stateMVar = do
     -- to-do. Are we fine with doing network IO while holding the mutex?
     removeClientFromLobby id stateNew
 
-removeClientFromLobby :: Int -> ServerState -> IO ServerState
+removeClientFromLobby :: PlayerId -> ServerState -> IO ServerState
 removeClientFromLobby id state@(ServerState {
   connections,
   gameState = LobbyState lobbyOld
@@ -112,7 +113,7 @@ removeClientFromLobby id state@(ServerState {
   return $ state & #gameState .~ LobbyState lobbyNew
 removeClientFromLobby _id state = return state
 
-talk :: Int -> WS.Connection -> MVar ServerState -> IO ()
+talk :: PlayerId -> WS.Connection -> MVar ServerState -> IO ()
 talk id connection stateMVar = do
   putStrLn $ "Client " ++ show id ++ " connected"
   forever $ do
@@ -133,9 +134,9 @@ sendToAll connections message = do
   Text.putStrLn $ "Sending message to all clients: " <> (encodeAsText message)
   traverse_ (sendMessage message) connections
 
-sendToAllWithKeyMaybe :: Aeson.ToJSON msg => IntMap WS.Connection -> (Int -> Maybe msg) -> IO ()
+sendToAllWithKeyMaybe :: Aeson.ToJSON msg => Map PlayerId WS.Connection -> (PlayerId -> Maybe msg) -> IO ()
 sendToAllWithKeyMaybe connections createMessageMaybe =
-  void $ flip IntMap.traverseWithKey connections $ \id connection ->
+  void $ flip Map.traverseWithKey connections $ \id connection ->
     case createMessageMaybe id of
       Nothing -> return ()
       Just message -> do
@@ -158,7 +159,7 @@ encodeAsText message = decodeUtf8 $ toStrict $ Aeson.encode message
 --                               |___/
 ----------------------------------------------------------------------------------------------------
 
-answerLobbyToServer :: LobbyAction -> Int -> ServerState -> IO (ServerState)
+answerLobbyToServer :: LobbyAction -> PlayerId -> ServerState -> IO (ServerState)
 answerLobbyToServer payload id stateOld@ServerState {
   connections,
   gameState = LobbyState lobbyOld
@@ -180,7 +181,7 @@ answerLobbyToServer _payload _id stateOld = do
   putStrLn "There is currently no active Lobby"
   return stateOld
 
-returnToLobby :: Int -> ServerState -> IO ServerState
+returnToLobby :: PlayerId -> ServerState -> IO ServerState
 returnToLobby id stateOld@(ServerState {
   connections,
   gameState = LobbyState lobbyOld
@@ -193,20 +194,20 @@ returnToLobby _id stateOld = do
   putStrLn "There is currently no active Lobby"
   return stateOld
 
-joinLobby :: Lobby -> Int -> Lobby
+joinLobby :: Lobby -> PlayerId -> Lobby
 joinLobby lobby id =
   lobby & #players . at id .~ Just Lobby.Player {name = "new player"}
 
-sendLobbyToAll :: IntMap WS.Connection -> Lobby -> IO ()
+sendLobbyToAll :: Map PlayerId WS.Connection -> Lobby -> IO ()
 sendLobbyToAll connections lobby@(Lobby { players }) =
-  sendToAll (IntMap.intersection connections players) (lobbyMessage lobby)
+  sendToAll (Map.intersection connections players) (lobbyMessage lobby)
 
 lobbyMessage :: Lobby -> StateFromServer
 lobbyMessage lobby = LobbyFromServer $ lobbyView lobby
 
 lobbyView :: Lobby -> LobbyView
 lobbyView (Lobby {players}) = LobbyView {
-  playerNames = fmap (view #name) $ IntMap.elems $ players
+  playerNames = fmap (view #name) $ Map.elems $ players
 }
 
 ----------------------------------------------------------------------------------------------------
@@ -218,7 +219,7 @@ lobbyView (Lobby {players}) = LobbyView {
 --
 ----------------------------------------------------------------------------------------------------
 
-answerGameToServer :: GameAction -> Int -> ServerState -> IO (ServerState)
+answerGameToServer :: GameAction -> PlayerId -> ServerState -> IO (ServerState)
 answerGameToServer payload id stateOld@ServerState {
   connections,
   gameState = GameState gameOld
@@ -233,13 +234,13 @@ answerGameToServer _payload _id stateOld = do
   putStrLn "There is currently no Game in progress"
   return stateOld
 
-sendGameUpdateToAll :: IntMap WS.Connection -> Game -> Maybe GameEvent -> IO ()
+sendGameUpdateToAll :: Map PlayerId WS.Connection -> Game -> Maybe GameEvent -> IO ()
 sendGameUpdateToAll connections game@(Game {
   players
 }) gameEvent =
-  sendToAllWithKeyMaybe (IntMap.intersection connections players) (gameMessage game gameEvent)
+  sendToAllWithKeyMaybe (Map.intersection connections players) (gameMessage game gameEvent)
 
-gameMessage :: Game -> Maybe GameEvent -> Int -> Maybe StateFromServer
+gameMessage :: Game -> Maybe GameEvent -> PlayerId -> Maybe StateFromServer
 gameMessage game event receiverId
   | Just VotePlaced { playerId } <- event, receiverId /= playerId =
     Nothing
@@ -248,7 +249,7 @@ gameMessage game event receiverId
     GameFromServer $
     GameUpdate (createGameView game receiverId) event
 
-createGameView :: Game -> Int -> GameView
+createGameView :: Game -> PlayerId -> GameView
 createGameView game@(Game {
   phase,
   goodPolicyCount,
@@ -265,7 +266,7 @@ createGameView game@(Game {
   GameView {
     playerId = viewerId,
     playerRole = viewerRole,
-    players = IntMap.mapWithKey (playerView viewerRole game) (game ^. #players),
+    players = Map.mapWithKey (playerView viewerRole game) (game ^. #players),
     phase,
     currentHand = filter (const $ Game.isPlayerAllowedToAct viewerId game) currentHand,
     drawPileSize,
@@ -277,7 +278,7 @@ createGameView game@(Game {
     vetoUnlocked = evilPolicyCount >= 5
   }
 
-playerView :: Role -> Game -> Int -> Game.Player -> PlayerView
+playerView :: Role -> Game -> PlayerId -> Game.Player -> PlayerView
 playerView viewerRole game id (Game.Player {
   name,
   turnOrder,
@@ -285,7 +286,7 @@ playerView viewerRole game id (Game.Player {
   vote,
   alive
 }) =
-  let playerCount = IntMap.size $ game ^. #players in
+  let playerCount = Map.size $ game ^. #players in
   PlayerView {
     name,
     turnOrder,

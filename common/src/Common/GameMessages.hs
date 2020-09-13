@@ -30,7 +30,8 @@ data PlayerView = PlayerView {
   turnOrder :: Int,
   role :: Maybe Role,
   vote :: Maybe Bool,
-  alive :: Bool
+  alive :: Bool,
+  eligible :: Bool
 } deriving stock (Generic)
 instance FromJSON PlayerView
 instance ToJSON PlayerView

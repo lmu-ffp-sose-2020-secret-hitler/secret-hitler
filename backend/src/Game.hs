@@ -10,6 +10,7 @@ module Game (
   generateRandomGame,
   updateChecked,
   isPlayerAllowedToAct,
+  isEligible,
   nominateChancellor,
   placeVote,
   discardPolicy,
@@ -239,7 +240,7 @@ nominateChancellor chancellorCandidateId gameOld@(Game {
   presidentId,
   phase = NominateChancellorPhase { previousGovernment }
 }) =
-  if isEligible chancellorCandidateId presidentId previousGovernment $ alivePlayers gameOld
+  if isEligible chancellorCandidateId gameOld
   then
     withGameEvent ChancellorNominated $
     gameOld
@@ -248,17 +249,22 @@ nominateChancellor chancellorCandidateId gameOld@(Game {
   else
     (gameOld, Error $ "Player " <> Text.pack (show chancellorCandidateId) <> " is not eligible")
   where
-    isEligible :: Int -> Int -> Maybe Government -> IntMap Player -> Bool
-    isEligible chancellorCandidateId presidentId previousGovernment alivePlayers
-      | chancellorCandidateId == presidentId = False
-      | isNothing $ IntMap.lookup chancellorCandidateId alivePlayers = False
-      | Nothing <- previousGovernment = True
-      | Just Government { presidentId, chancellorId } <- previousGovernment =
-        if IntMap.size alivePlayers <= 5
-        then chancellorCandidateId /= chancellorId
-        else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
 nominateChancellor _playerId gameOld =
   (gameOld, Error "Cannot nominate a chancellor outside of NominateChancellorPhase")
+
+isEligible :: Int -> Game -> Bool
+isEligible chancellorCandidateId game@(Game {
+  presidentId,
+  phase = NominateChancellorPhase { previousGovernment }
+})
+  | chancellorCandidateId == presidentId = False
+  | isNothing $ IntMap.lookup chancellorCandidateId (alivePlayers game) = False
+  | Nothing <- previousGovernment = True
+  | Just Government { presidentId, chancellorId } <- previousGovernment =
+    if IntMap.size (alivePlayers game) <= 5
+    then chancellorCandidateId /= chancellorId
+    else chancellorCandidateId /= chancellorId && chancellorCandidateId /= presidentId
+isEligible _chancellorCandidateId _game = False
 
 ----------------------------------------------------------------------------------------------------
 --    ____   _                    __     __      _

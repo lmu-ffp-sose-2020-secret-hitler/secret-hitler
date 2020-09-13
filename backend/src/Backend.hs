@@ -3,7 +3,6 @@ module Backend where
 import Common.GameMessages (
     GameAction (..),
     GameEvent (..),
-    GamePhase (..),
     GameView (..),
     PlayerView (..),
     Role (..),
@@ -253,18 +252,15 @@ createGameView game@(Game {
   electionTracker
 }) playerId =
   let
-    players = game ^. #players
     player = fromJust $ game ^. #players . at playerId
     playerRole = player ^. #role
-    playerCount = IntMap.size $ players
-    gamePhase = game ^. #phase
     currentHand = Game.currentHand game
     drawPileSize = length (Game.drawPile game)
   in
   GameView {
     playerId,
     playerRole,
-    players = IntMap.map (playerView playerRole playerCount gamePhase) players,
+    players = IntMap.mapWithKey (playerView playerRole game) (game ^. #players),
     phase,
     currentHand = filter (const $ Game.isPlayerAllowedToAct playerId game) currentHand,
     drawPileSize,
@@ -276,20 +272,22 @@ createGameView game@(Game {
     vetoUnlocked = evilPolicyCount >= 5
   }
 
-playerView :: Role -> Int -> GamePhase -> Game.Player -> PlayerView
-playerView playerRole playerCount gamePhase (Game.Player {
+playerView :: Role -> Game -> Int -> Game.Player -> PlayerView
+playerView viewerRole game id (Game.Player {
   name,
   turnOrder,
   role,
   vote,
   alive
 }) =
+  let playerCount = IntMap.size $ game ^. #players in
   PlayerView {
     name,
     turnOrder,
-    role = mfilter (const $ canSeeOtherRoles playerRole playerCount) (Just role),
-    vote = mfilter (const $ isVotePhase gamePhase) vote,
-    alive
+    role = mfilter (const $ canSeeOtherRoles viewerRole playerCount) (Just role),
+    vote = mfilter (const $ isVotePhase (game ^. #phase)) vote,
+    alive,
+    eligible = Game.isEligible id game
   }
   where
     canSeeOtherRoles :: Role -> Int -> Bool

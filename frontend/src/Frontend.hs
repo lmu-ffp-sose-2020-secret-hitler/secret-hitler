@@ -283,14 +283,14 @@ playerList gameView =
                 player
               )
               (
-                dynText (view #name <$> player)
-                *>
-                (
-                  dyn_ $
-                  zipDynWith
+                dynText (view #name <$> player) *>
+                dyn_ (fmap roleDom $ fmap (view #role) $ player) *>
+                dyn_
+                  (zipDynWith
                     markOfficial
                     (fst <$> idAndPlayer)
-                    gameView)
+                    gameView
+                  ) *>
               )
         )
     )
@@ -355,6 +355,23 @@ playerList gameView =
       \case
         NominateChancellorPhase {previousGovernment} -> previousGovernment
         _ -> Nothing
+    roleDom :: Maybe Role -> m ()
+    roleDom =
+      \case
+        Nothing -> pure ()
+        Just role ->
+          elAttr
+            "div"
+            (
+              "class" =: "role" <>
+              "title" =:
+                "L stands for Liberal, F stands for Fascist, H stands for Hitler"
+            )
+            (case role of
+              GoodRole -> text "L"
+              EvilRole -> text "F"
+              EvilLeaderRole -> text "H"
+            )
     inSelectPhase :: Dynamic t Bool
     inSelectPhase =
       (\(GameView {phase, playerId, presidentId}) ->

@@ -81,7 +81,7 @@ img {
 .dead {
     color: #999;
 }
-#player_list img {
+#player_list img, #player_list .role {
     height: 1.18em;
     float: right;
     cursor: help;

@@ -140,18 +140,23 @@ gameWidget gameUpdate =
         (
           (fromMaybe "") <$>
           (fmap (\case
-            Good-> "Liberals won!"
-            Evil -> "Fascists won!"
+            AllEvilPoliciesPlayed -> "Fascists won by enacting enough policies!"
+            AllGoodPoliciesPlayed -> "Liberals won by enacting enough policies!"
+            EvilLeaderElected -> "Fascists won by electing their leader!"
+            EvilLeaderKilled -> "Liberals won by killing the Fascist leader!"
           )) <$>
-          (eventWinner =<<) <$>
-          gameEvent
+          (\case
+            GameOverPhase reason -> Just reason
+            _ -> Nothing
+          ) <$>
+          (view #phase) <$>
+          gameView
         )
       (ReturnToLobbyAction <$) <$> button "Return to Lobby"
     pure $ leftmost [playerSelect, phaseDependentAction, returnEvent]
   where
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
-    gameEvent = view #gameEvent <$> gameUpdate
 
 phaseDependentWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>
@@ -331,13 +336,13 @@ playerList gameView =
     chancellorIdCurrent =
       fmap
         (\case
-          NominateChancellorPhase {} -> Nothing
           VotePhase {chancellorCandidateId} -> Just chancellorCandidateId
           PresidentDiscardPolicyPhase {chancellorId} -> Just chancellorId
           ChancellorDiscardPolicyPhase {chancellorId} -> Just chancellorId
           PolicyPeekPhase {chancellorId} -> Just chancellorId
           ExecutionPhase {chancellorId} -> Just chancellorId
           PendingVetoPhase {chancellorId} -> Just chancellorId
+          _ -> Nothing
         ) $
       fmap (view #phase) $
       gameView

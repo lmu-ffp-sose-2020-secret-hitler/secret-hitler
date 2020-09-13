@@ -25,12 +25,11 @@ import Common.GameMessages
   (
     GameAction (..),
     GameEvent (..),
+    GameOverReason (..),
     GamePhase (..),
     Government (..),
     Policy (..),
-    PolicyEnacted (..),
     Role (..),
-    enactedPolicy,
   )
 import Control.Applicative ((<|>))
 import Control.Lens hiding (element)
@@ -209,6 +208,7 @@ isPlayerAllowedToAct actorId game@(Game { phase }) =
     PolicyPeekPhase {} -> actorIsPresident
     ExecutionPhase {} -> actorIsPresident
     PendingVetoPhase {} -> actorIsPresident
+    GameOverPhase {} -> False
 
 update :: Int -> GameAction -> Game -> Random (Game, GameEvent)
 update actorId action = do
@@ -299,21 +299,20 @@ placeVote actorId vote gameOld@(Game {
       case game ^. #players . at chancellorCandidateId of
         Nothing -> (game, Error $ "Player " <> Text.pack (show chancellorCandidateId) <> " is not in this game")
         Just chancellor ->
-          let
-            event =
-              if game ^. #evilPolicyCount >= 3 && chancellor ^. #role == EvilLeaderRole
-              then EvilLeaderElected
-              else VoteSucceeded
-          in
-          withGameEvent event $
-          game & #phase .~ PresidentDiscardPolicyPhase { chancellorId = chancellorCandidateId }
+          withGameEvent VoteSucceeded $
+          game & #phase .~
+            if game ^. #evilPolicyCount >= 3 && chancellor ^. #role == EvilLeaderRole
+            then GameOverPhase { reason = EvilLeaderElected }
+            else PresidentDiscardPolicyPhase { chancellorId = chancellorCandidateId }
     failVote :: Game -> Random (Game, GameEvent)
     failVote game = do
-      (game, policyEnacted) <- advanceElectionTracker game
+      (game, gameOverReason, policyEnacted) <- advanceElectionTracker game
       let keepTermLimits = const $ isNothing policyEnacted
       return $
         withGameEvent (VoteFailed policyEnacted) $
-        nominateNextRegularPresident (mfilter keepTermLimits previousGovernment) game
+        case gameOverReason of
+          Just reason -> game & #phase .~ GameOverPhase { reason }
+          _ -> nominateNextRegularPresident (mfilter keepTermLimits previousGovernment) game
 placeVote _actorId _vote gameOld =
   return (gameOld, Error "Cannot vote outside of VotePhase")
 
@@ -349,14 +348,14 @@ discardPolicy policyIndex gameOld =
     updateGameAfterDiscard gameOld@(Game {
       phase = ChancellorDiscardPolicyPhase { chancellorId }
     }) = do
-      (gameNew, policyEnacted) <- enactTopPolicy gameOld
-      return $ withGameEvent (ChancellorEnactedPolicy policyEnacted) $
-        case enactedPolicy policyEnacted of
-          GoodPolicy -> endElectedGovernmentWithTermLimits chancellorId gameNew
-          EvilPolicy ->
-            case presidentialPowerPhase chancellorId gameNew of
-              Just gamePhase -> gameNew & #phase .~ gamePhase
-              Nothing -> endElectedGovernmentWithTermLimits chancellorId gameNew
+      (gameNew, gameOverReason, policyEnacted) <- enactTopPolicy gameOld
+      return $
+        withGameEvent (ChancellorEnactedPolicy policyEnacted) $
+        if | Just reason <- gameOverReason -> gameNew & #phase .~ GameOverPhase { reason }
+           | EvilPolicy <- policyEnacted,
+            Just gamePhase <- presidentialPowerPhase chancellorId gameNew ->
+              gameNew & #phase .~ gamePhase
+           | otherwise -> endElectedGovernmentWithTermLimits chancellorId gameNew
     updateGameAfterDiscard _game =
       return (gameOld, Error "Cannot discard policy outside of PresidentDiscardPolicyPhase or ChancellorDiscardPolicyPhase")
 
@@ -400,21 +399,17 @@ stopPeekingPolicies game =
   (game, Error "Cannot stop peeking policies outside of PolicyPeekPhase")
 
 executePlayer :: Int -> Game -> (Game, GameEvent)
-executePlayer playerId game@(Game {
+executePlayer playerId gameOld@(Game {
   phase = ExecutionPhase { chancellorId }
 }) =
-  case game ^. #players . at playerId of
-    Nothing -> (game, Error $ "Player " <> Text.pack (show playerId) <> " is not in this game")
+  case gameOld ^. #players . at playerId of
+    Nothing -> (gameOld, Error $ "Player " <> Text.pack (show playerId) <> " is not in this game")
     Just player ->
-      let
-        event =
-          if player ^. #role == EvilLeaderRole
-          then EvilLeaderKilled
-          else PlayerKilled
-      in
-      withGameEvent event $
-      endElectedGovernmentWithTermLimits chancellorId $
-      game & #players . ix playerId . #alive .~ False
+      let gameNew = gameOld & #players . ix playerId . #alive .~ False in
+      withGameEvent PlayerKilled $
+      case player ^. #role of
+        EvilLeaderRole -> gameNew & #phase .~ GameOverPhase { reason = EvilLeaderKilled }
+        _ -> endElectedGovernmentWithTermLimits chancellorId gameNew
 executePlayer _playerId game =
   (game, Error "Cannot execute a player outside of ExecutionPhase")
 
@@ -446,12 +441,12 @@ acceptVeto game@(Game {
   phase = PendingVetoPhase { chancellorId }
 }) = do
   game <- pure $ game & #cardPile .~ cardPileTail
-  (game, policyEnactedMaybe) <- advanceElectionTracker game
+  (game, gameOverMaybe, policyEnactedMaybe) <- advanceElectionTracker game
   game <- shuffleDrawPileIfNeccessary game
   game <-
-    if isNothing policyEnactedMaybe
-    then pure $ endElectedGovernmentWithTermLimits chancellorId game
-    else pure $ nominateNextRegularPresident Nothing game
+    if | Just reason <- gameOverMaybe -> pure $ game & #phase .~ GameOverPhase { reason }
+       | isNothing policyEnactedMaybe -> pure $ endElectedGovernmentWithTermLimits chancellorId game
+       | otherwise -> pure $ nominateNextRegularPresident Nothing game
   pure $ withGameEvent (VetoAccepted policyEnactedMaybe) game
 acceptVeto game =
   return (game, Error "Cannot accept veto outside of PendingVetoPhase")
@@ -480,13 +475,15 @@ alivePlayers game =
   view #players $
   game
 
-advanceElectionTracker :: Game -> Random (Game, Maybe PolicyEnacted)
+advanceElectionTracker :: Game -> Random (Game, Maybe GameOverReason, Maybe Policy)
 advanceElectionTracker game@(Game { electionTracker }) =
   if electionTracker < 2
-  then return (game & #electionTracker %~ (+1), Nothing)
-  else (fmap Just) <$> enactTopPolicy game
+  then return (game & #electionTracker %~ (+1), Nothing, Nothing)
+  else (fmapTripple Just) <$> enactTopPolicy game
 
-enactTopPolicy :: Game -> Random (Game, PolicyEnacted)
+fmapTripple f (a, b, c) = (a, b, f c)
+
+enactTopPolicy :: Game -> Random (Game, Maybe GameOverReason, Policy)
 enactTopPolicy game@(Game { cardPile = policy : cardPileTail }) =
   fmap (withPolicyEnacted policy) $
   shuffleDrawPileIfNeccessary $
@@ -499,15 +496,16 @@ enactTopPolicy game@(Game { cardPile = policy : cardPileTail }) =
     policyCount GoodPolicy = #goodPolicyCount
     policyCount EvilPolicy = #evilPolicyCount
 
-    withPolicyEnacted :: Policy -> Game -> (Game, PolicyEnacted)
+    withPolicyEnacted :: Policy -> Game -> (Game, Maybe GameOverReason, Policy)
     withPolicyEnacted policy game =
       let
-        constructor =
+        gameOverReason =
           case policy of
-            GoodPolicy -> if game ^. #goodPolicyCount < 5 then PolicyEnacted else LastPolicyEnacted
-            EvilPolicy -> if game ^. #evilPolicyCount < 6 then PolicyEnacted else LastPolicyEnacted
+            GoodPolicy | game ^. #goodPolicyCount < 5 -> Just AllGoodPoliciesPlayed
+            EvilPolicy | game ^. #evilPolicyCount < 6 -> Just AllEvilPoliciesPlayed
+            _ -> Nothing
       in
-      (game, constructor policy)
+      (game, gameOverReason, policy)
 enactTopPolicy _gameOld = error "Cannot enact top policy from empty card pile"
 
 shuffleDrawPileIfNeccessary :: Game -> Random Game

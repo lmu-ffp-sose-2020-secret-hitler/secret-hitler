@@ -3,10 +3,10 @@ module Backend where
 import Common.GameMessages (
     GameAction (..),
     GameEvent (..),
+    GamePhase (..),
     GameView (..),
     PlayerView (..),
     Role (..),
-    eventWinner,
     isVotePhase,
   )
 import Common.MessageTypes
@@ -225,9 +225,9 @@ answerGameToServer payload id stateOld@ServerState {
   (gameNew, gameEvent) <- runRandomIO $ Game.updateChecked id payload gameOld
   -- to-do. Are we fine with doing network IO while holding the mutex?
   sendGameUpdateToAll connections gameNew (Just gameEvent)
-  case eventWinner gameEvent of
-    Nothing -> return $ stateOld & #gameState .~ GameState gameNew
-    Just _ -> do return $ stateOld & #gameState .~ LobbyState Lobby.newLobby
+  case gameNew ^. #phase of
+    GameOverPhase {} -> return $ stateOld & #gameState .~ LobbyState Lobby.newLobby
+    _ -> return $ stateOld & #gameState .~ GameState gameNew
 answerGameToServer _payload _id stateOld = do
   putStrLn "There is currently no Game in progress"
   return stateOld

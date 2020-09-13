@@ -77,10 +77,28 @@ data GamePhase =
   } |
   PendingVetoPhase {
     chancellorId :: Int
+  } |
+  GameOverPhase {
+    reason :: GameOverReason
   }
   deriving stock (Generic)
 instance FromJSON GamePhase
 instance ToJSON GamePhase
+
+data GameOverReason =
+  AllEvilPoliciesPlayed |
+  AllGoodPoliciesPlayed |
+  EvilLeaderElected |
+  EvilLeaderKilled
+  deriving stock (Generic)
+instance FromJSON GameOverReason
+instance ToJSON GameOverReason
+
+gameOverWinner :: GameOverReason -> Alignment
+gameOverWinner AllEvilPoliciesPlayed = Evil
+gameOverWinner AllGoodPoliciesPlayed = Good
+gameOverWinner EvilLeaderElected = Evil
+gameOverWinner EvilLeaderKilled = Good
 
 isVotePhase :: GamePhase -> Bool
 isVotePhase VotePhase {} = True
@@ -122,40 +140,15 @@ data GameEvent =
   ChancellorNominated |
   VotePlaced |
   VoteSucceeded |
-  EvilLeaderElected |
-  VoteFailed (Maybe PolicyEnacted) |
+  VoteFailed (Maybe Policy) |
   PresidentDiscardedPolicy |
-  ChancellorEnactedPolicy PolicyEnacted |
+  ChancellorEnactedPolicy Policy |
   PresidentStoppedPeekingPolicies |
   PlayerKilled |
-  EvilLeaderKilled |
   VetoProposed |
-  VetoAccepted (Maybe PolicyEnacted) |
+  VetoAccepted (Maybe Policy) |
   VetoRejected |
   Error Text
   deriving stock (Generic)
 instance FromJSON GameEvent
 instance ToJSON GameEvent
-
-eventWinner :: GameEvent -> Maybe Alignment
-eventWinner (EvilLeaderElected) = Just Evil
-eventWinner (VoteFailed policyEnacted) = policyEnactedWinner =<< policyEnacted
-eventWinner (ChancellorEnactedPolicy policyEnacted) = policyEnactedWinner policyEnacted
-eventWinner EvilLeaderKilled = Just Good
-eventWinner (VetoAccepted policyEnacted) = policyEnactedWinner =<< policyEnacted
-eventWinner _ = Nothing
-
-data PolicyEnacted =
-  PolicyEnacted Policy |
-  LastPolicyEnacted Policy
-  deriving stock (Generic)
-instance FromJSON PolicyEnacted
-instance ToJSON PolicyEnacted
-
-policyEnactedWinner :: PolicyEnacted -> Maybe Alignment
-policyEnactedWinner (LastPolicyEnacted policy) = Just (policyAlignment policy)
-policyEnactedWinner _ = Nothing
-
-enactedPolicy :: PolicyEnacted -> Policy
-enactedPolicy (PolicyEnacted policy) = policy
-enactedPolicy (LastPolicyEnacted policy) = policy

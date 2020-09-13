@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-partial-fields #-}
+
 module Common.GameMessages where
 
 import Data.Aeson (FromJSON, ToJSON, ToJSONKey, FromJSONKey)

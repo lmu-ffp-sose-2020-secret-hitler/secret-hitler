@@ -17,14 +17,32 @@ library
     Common.Route
     Common.MessageTypes
     Common.GameMessages
-  ghc-options: -Wall
+  ghc-options:
+    -Weverything
+    -Wno-implicit-prelude
+    -Wno-missing-export-lists
+    -Wno-missing-import-lists
+    -Wno-name-shadowing
+    -Wno-orphans
+    -Wno-unsafe
+    -Wno-missing-local-signatures
+    -Wno-partial-fields
   default-extensions:
+    GADTs
+    DataKinds
+    TypeFamilies
+    OverloadedStrings
+    RankNTypes
+    TypeApplications
+    ScopedTypeVariables
+    RecursiveDo
+    GeneralizedNewtypeDeriving
+    AllowAmbiguousTypes
     OverloadedLabels
     DuplicateRecordFields
     DerivingStrategies
     NamedFieldPuns
-    TypeFamilies
-    GeneralizedNewtypeDeriving
     DeriveGeneric
-    OverloadedStrings
     LambdaCase
+    MultiWayIf
+    TupleSections

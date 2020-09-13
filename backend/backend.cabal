@@ -41,16 +41,26 @@ library
     -Wno-orphans
     -Wno-unsafe
     -Wno-missing-local-signatures
+    -Wno-partial-fields
   default-extensions:
+    GADTs
+    DataKinds
+    TypeFamilies
+    OverloadedStrings
+    RankNTypes
+    TypeApplications
+    ScopedTypeVariables
+    RecursiveDo
+    GeneralizedNewtypeDeriving
+    AllowAmbiguousTypes
     OverloadedLabels
     DuplicateRecordFields
     DerivingStrategies
     NamedFieldPuns
-    TypeFamilies
-    GeneralizedNewtypeDeriving
     DeriveGeneric
-    OverloadedStrings
     LambdaCase
+    MultiWayIf
+    TupleSections
 
 executable backend
   main-is: main.hs

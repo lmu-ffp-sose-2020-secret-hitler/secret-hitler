@@ -1,5 +1,3 @@
-{-# language GADTs #-}
-
 module Common.MessageTypes where
 
 import Common.GameMessages (GameAction, GameEvent, GameView)

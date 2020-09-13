@@ -1,6 +1,4 @@
 {-# OPTIONS_GHC -Wno-partial-fields #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE TupleSections #-}
 
 module Game (
   Game (..),

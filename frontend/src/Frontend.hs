@@ -1,9 +1,3 @@
-{-# LANGUAGE MultiWayIf #-}
-{-# language AllowAmbiguousTypes #-}
-{-# language RankNTypes #-}
-{-# language RecursiveDo #-}
-{-# language ScopedTypeVariables #-}
-
 module Frontend where
 
 import Common.GameMessages
@@ -248,7 +242,7 @@ gameUpdateEventText gameUpdate =
     capitalize t = t & ix 0 %~ toUpper
 
 phaseWidget ::
-  (PostBuild t m, DomBuilder t m, MonadHold t m) =>
+  (PostBuild t m, DomBuilder t m) =>
   GameView -> m (Event t ActionFromClient)
 phaseWidget
   (GameView {players, phase, playerId, presidentId, currentHand, vetoUnlocked})

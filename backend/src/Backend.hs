@@ -290,7 +290,7 @@ playerView viewerRole game id (Game.Player {
     name,
     turnOrder,
     role = mfilter (const $ canSeeOtherRoles viewerRole playerCount) (Just role),
-    vote = mfilter (const $ isVotePhase (game ^. #phase)) vote,
+    vote = mfilter (const $ not $ isVotePhase (game ^. #phase)) vote,
     alive,
     eligible = Game.isEligible id game
   }

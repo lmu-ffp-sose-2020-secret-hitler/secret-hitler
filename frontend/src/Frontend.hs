@@ -243,7 +243,7 @@ phaseWidget
 
 nominateChancellorPhaseWidget :: DomBuilder t m => m (Event t ActionFromClient)
 nominateChancellorPhaseWidget = do
-  text "Please nominate a chancellor by clicking their name."
+  text "You run for president! Please nominate a chancellor by clicking their name."
   pure never
 
 votePhaseWidget :: DomBuilder t m => m (Event t ActionFromClient)
@@ -259,7 +259,8 @@ votePhaseWidget = do
 
 discardPolicyPhaseWidget ::
   DomBuilder t m => [Policy] -> (Int -> GameAction) -> m (Event t ActionFromClient) -> m (Event t ActionFromClient)
-discardPolicyPhaseWidget currentHand makeGameAction vetoWidget =
+discardPolicyPhaseWidget currentHand makeGameAction vetoWidget = do
+  text "Select a policy to discard:"
   elId "div" "policy_phase" $
     fmap leftmost $
     sequenceA $
@@ -285,7 +286,8 @@ discardPolicyPhaseWidget currentHand makeGameAction vetoWidget =
     ]
 
 policyPeekPhaseWidget :: DomBuilder t m => [Policy] -> m (Event t ActionFromClient)
-policyPeekPhaseWidget currentHand =
+policyPeekPhaseWidget currentHand = do
+  text "Take a peek at the policies available to the next government."
   elId "div" "policy_phase" $ do
     for_ currentHand $ \policy ->
       elAttr' "img" ("src" =: case policy of

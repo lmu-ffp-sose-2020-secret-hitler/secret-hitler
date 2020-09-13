@@ -1,7 +1,8 @@
-{-# language ScopedTypeVariables #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# language AllowAmbiguousTypes #-}
-{-# language RecursiveDo #-}
 {-# language RankNTypes #-}
+{-# language RecursiveDo #-}
+{-# language ScopedTypeVariables #-}
 
 module Frontend where
 
@@ -66,17 +67,32 @@ frontend =
 lobbyWidget ::
   (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m) =>
   Dynamic t LobbyView -> m (Event t LobbyAction)
-lobbyWidget lobbyView =
-  do
-    elId "div" "player_list_lobby" $ void $
-      simpleList (view #playerNames <$> lobbyView) (el "div" . dynText)
-    nameElement <- inputElement $ def
-    startGame <- (StartGame <$) <$> button "Start Game"
-    pure $
-      leftmost [
-        startGame,
-        Join <$> (updated $ value nameElement)
-      ]
+lobbyWidget lobbyView = do
+  let playerNames = view #playerNames <$> lobbyView
+  elId "div" "player_list_lobby" $ void $
+    simpleList playerNames (el "div" . dynText)
+  nameElement <- inputElement $ def
+  (startGameButton, ()) <- elDynAttr' "button"
+    (
+      ("type" =: "button" <>) <$>
+      (\playerCount ->
+        if| playerCount < 5 ->
+              "disabled" =: "" <>
+              "title" =: "You need at least 5 players to start the game"
+          | playerCount > 10 ->
+              "disabled" =: "" <>
+              "title" =: "This game can be played by at most 10 players"
+          | otherwise -> Map.empty
+      ) <$>
+      length <$>
+      playerNames
+    ) $
+    text "Start Game"
+  pure $
+    leftmost [
+      StartGame <$ domEvent Click startGameButton,
+      Join <$> (updated $ value nameElement)
+    ]
 
 gameWidget ::
   forall t m.

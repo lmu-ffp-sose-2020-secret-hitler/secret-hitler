@@ -8,7 +8,9 @@ Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Sp
 
 ## Build
 
-Execute
+1. (Install Obelisk)[https://github.com/obsidiansystems/obelisk#installing-obelisk].
+
+2. Execute
 
 ```shell
 mkdir test-app

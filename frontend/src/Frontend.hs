@@ -80,10 +80,10 @@ lobbyWidget lobbyView =
 gameWidget ::
   forall t m.
   (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
-  Dynamic t GameUpdate ->  m (Event t GameAction)
+  Dynamic t GameUpdate ->  m (Event t ActionFromClient)
 gameWidget gameUpdate =
   elId "div" "board" $ do
-    playerSelect :: Event t GameAction <- playerList gameView
+    playerSelect <- fmap (GameAction <$>) $ playerList gameView
     imgStyle @"draw_pile.png" "grid-area: draw_pile" blank
     imgStyle @"board_fascist_5_6.png" "grid-area: board_fascist" blank
     elId "div" "policies_fascist" $
@@ -117,7 +117,8 @@ gameWidget gameUpdate =
       )
       blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-    phaseDependentAction :: Event t GameAction <- elId "div" "phase_dependent" $
+    phaseDependentAction <- fmap (GameAction <$>) $
+      elId "div" "phase_dependent" $
       -- fmap switchDyn $
       -- widgetHold
       --   nominateChancellorPhaseWidget
@@ -134,10 +135,23 @@ gameWidget gameUpdate =
           gameView
         )
     -- display =<< (holdDyn StopPeekingPolicies phaseDependentAction)
-    pure $ leftmost [playerSelect, phaseDependentAction]
+    (_, returnEvent) <- el' "div" $ do
+      dynText
+        (
+          (fromMaybe "") <$>
+          (fmap (\case
+            Good-> "Liberals won!"
+            Evil -> "Fascists won!"
+          )) <$>
+          (eventWinner =<<) <$>
+          gameEvent
+        )
+      (ReturnToLobbyAction <$) <$> button "Return to Lobby"
+    pure $ leftmost [playerSelect, phaseDependentAction, returnEvent]
   where
     gameView :: Dynamic t GameView
     gameView = view #gameView <$> gameUpdate
+    gameEvent = view #gameEvent <$> gameUpdate
 
 phaseDependentWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>
@@ -429,8 +443,7 @@ application baseUri =
         (\case
           LobbyFromServerTag :=> lobbyFromServer ->
             (fmap . fmap) LobbyAction (lobbyWidget lobbyFromServer)
-          GameFromServerTag :=> gameFromServer ->
-            (fmap . fmap) GameAction (gameWidget gameFromServer)
+          GameFromServerTag :=> gameFromServer -> gameWidget gameFromServer
         ) $
       (stateFromServerDyn =<<) $
       holdDyn (LobbyFromServer lobbyViewInitial) $

@@ -7,6 +7,7 @@ import Common.GameMessages (
     GameView (..),
     PlayerView (..),
     Role (..),
+    eventWinner,
     isVotePhase,
   )
 import Common.MessageTypes
@@ -73,8 +74,7 @@ application stateMVar pending = do
         connection <- WS.acceptRequest pending
         WS.forkPingThread connection 30
         let id = nextId connections
-            player = Lobby.Player {name = "new player"}
-            lobbyNew = lobbyOld & (#players . at id) .~ Just player
+            lobbyNew = joinLobby lobbyOld id
             stateNew = stateOld
               & #connections . at id .~ Just connection
               & #gameState .~ LobbyState lobbyNew
@@ -123,9 +123,11 @@ talk id connection stateMVar = do
       Just message -> do
         Text.putStrLn $ "Received message from client " <> Text.pack (show id) <> ": "
           <> (encodeAsText message)
-        case message of
-          LobbyAction payload -> modifyMVar_ stateMVar (answerLobbyToServer id payload)
-          GameAction payload -> modifyMVar_ stateMVar (answerGameToServer id payload)
+        modifyMVar_ stateMVar $ (case message of
+          LobbyAction payload -> answerLobbyToServer payload
+          GameAction payload -> answerGameToServer payload
+          ReturnToLobbyAction -> returnToLobby
+          ) id
 
 sendToAll :: (Foldable f, Aeson.ToJSON msg) => f WS.Connection -> msg -> IO ()
 sendToAll connections message = do
@@ -156,8 +158,8 @@ encodeAsText message = decodeUtf8 $ toStrict $ Aeson.encode message
 --                               |___/
 ----------------------------------------------------------------------------------------------------
 
-answerLobbyToServer :: Int -> LobbyAction -> ServerState -> IO (ServerState)
-answerLobbyToServer id payload stateOld@ServerState {
+answerLobbyToServer :: LobbyAction -> Int -> ServerState -> IO (ServerState)
+answerLobbyToServer payload id stateOld@ServerState {
   connections,
   gameState = LobbyState lobbyOld
 } = do
@@ -165,7 +167,8 @@ answerLobbyToServer id payload stateOld@ServerState {
     StartGame -> do
       let playerNames = lobbyOld ^. #players <&> view #name
       game <- runRandomIO $ Game.generateRandomGame playerNames
-      sendToAllWithKey connections (gameMessage game Nothing)
+      -- to-do. Are we fine with doing network IO while holding the mutex?
+      sendGameUpdateToAll connections game Nothing
       return $ stateOld & #gameState .~ GameState game
     Join nameNew -> do
       let lobbyNew = lobbyOld & #players . ix id . #name .~ nameNew
@@ -173,13 +176,30 @@ answerLobbyToServer id payload stateOld@ServerState {
       sendLobbyToAll connections lobbyNew
       return $ stateOld & #gameState .~ LobbyState lobbyNew
   return stateNew
-answerLobbyToServer _id _payload stateOld = do
+answerLobbyToServer _payload _id stateOld = do
   putStrLn "There is currently no active Lobby"
   return stateOld
 
+returnToLobby :: Int -> ServerState -> IO ServerState
+returnToLobby id stateOld@(ServerState {
+  connections,
+  gameState = LobbyState lobbyOld
+}) = do
+  let lobbyNew = joinLobby lobbyOld id
+  sendLobbyToAll connections lobbyNew
+  let stateNew = stateOld & #gameState .~ LobbyState lobbyNew
+  return stateNew
+returnToLobby _id stateOld = do
+  putStrLn "There is currently no active Lobby"
+  return stateOld
+
+joinLobby :: Lobby -> Int -> Lobby
+joinLobby lobby id =
+  lobby & #players . at id .~ Just Lobby.Player {name = "new player"}
+
 sendLobbyToAll :: IntMap WS.Connection -> Lobby -> IO ()
-sendLobbyToAll connections lobby =
-  sendToAll connections (lobbyMessage lobby)
+sendLobbyToAll connections lobby@(Lobby { players }) =
+  sendToAll (IntMap.intersection connections players) (lobbyMessage lobby)
 
 lobbyMessage :: Lobby -> StateFromServer
 lobbyMessage lobby = LobbyFromServer $ lobbyView lobby
@@ -198,19 +218,26 @@ lobbyView (Lobby {players}) = LobbyView {
 --
 ----------------------------------------------------------------------------------------------------
 
-answerGameToServer :: Int -> GameAction -> ServerState -> IO (ServerState)
-answerGameToServer id payload stateOld@ServerState {
+answerGameToServer :: GameAction -> Int -> ServerState -> IO (ServerState)
+answerGameToServer payload id stateOld@ServerState {
   connections,
   gameState = GameState gameOld
 } = do
   (gameNew, gameEvent) <- runRandomIO $ Game.updateChecked id payload gameOld
-  let stateNew = stateOld & #gameState .~ GameState gameNew
   -- to-do. Are we fine with doing network IO while holding the mutex?
-  sendToAllWithKey connections (gameMessage gameNew (Just gameEvent))
-  return stateNew
-answerGameToServer _id _payload stateOld = do
+  sendGameUpdateToAll connections gameNew (Just gameEvent)
+  case eventWinner gameEvent of
+    Nothing -> return $ stateOld & #gameState .~ GameState gameNew
+    Just _ -> do return $ stateOld & #gameState .~ LobbyState Lobby.newLobby
+answerGameToServer _payload _id stateOld = do
   putStrLn "There is currently no Game in progress"
   return stateOld
+
+sendGameUpdateToAll :: IntMap WS.Connection -> Game -> Maybe GameEvent -> IO ()
+sendGameUpdateToAll connections game@(Game {
+  players
+}) gameEvent =
+  sendToAllWithKey (IntMap.intersection connections players) (gameMessage game gameEvent)
 
 gameMessage :: Game -> Maybe GameEvent -> Int -> StateFromServer
 gameMessage game event playerId =

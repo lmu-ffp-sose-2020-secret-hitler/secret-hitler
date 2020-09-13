@@ -39,7 +39,8 @@ instance ToJSON GameUpdate where
 
 data ActionFromClient =
   LobbyAction LobbyAction |
-  GameAction GameAction
+  GameAction GameAction |
+  ReturnToLobbyAction
   deriving stock (Generic)
 instance FromJSON ActionFromClient
 instance ToJSON ActionFromClient where

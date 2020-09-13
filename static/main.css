@@ -50,6 +50,10 @@ img {
 #player_list>.dead {
     color: #999;
 }
+. role {
+    width: .8em;
+    text-align: center;
+}
 #player_list img, #player_list .role {
     height: 1.18em;
     float: right;

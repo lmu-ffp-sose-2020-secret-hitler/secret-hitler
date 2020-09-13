@@ -348,9 +348,10 @@ playerList gameView =
               (
                 dynText (view #name <$> player) *>
                 dyn_ (fmap roleDom $ fmap (view #role) $ player) *>
+                dyn_ (fmap voteDom $ fmap (view #vote) $ player) *>
                 dyn_
                   (zipDynWith
-                    markOfficial
+                    markDom
                     (fst <$> idAndPlayer)
                     gameView
                   )
@@ -358,8 +359,34 @@ playerList gameView =
         )
     )
   where
-    markOfficial :: Int -> GameView -> m ()
-    markOfficial playerId (GameView {presidentId, phase})
+    roleDom :: Maybe Role -> m ()
+    roleDom =
+      \case
+        Nothing -> blank
+        Just role ->
+          elAttr
+            "div"
+            (
+              "class" =: "role" <>
+              "title" =:
+                "L stands for Liberal, F stands for Fascist, H stands for Hitler"
+            )
+            (case role of
+              GoodRole -> text "L"
+              EvilRole -> text "F"
+              EvilLeaderRole -> text "H"
+            )
+    voteDom :: Maybe Bool -> m ()
+    voteDom =
+      \case
+        Nothing -> blank
+        Just vote ->
+          elAttr
+            "img"
+            ("src" =: bool (static @"nein_ballot.png") (static @"ja_ballot.png") vote)
+            blank
+    markDom :: Int -> GameView -> m ()
+    markDom playerId (GameView {presidentId, phase})
       | playerId == presidentId = presidentMark Present
       | fromMaybe False $ (playerId ==) <$> chancellorIdGet phase =
         chancellorMark Present
@@ -418,23 +445,6 @@ playerList gameView =
       \case
         NominateChancellorPhase {previousGovernment} -> previousGovernment
         _ -> Nothing
-    roleDom :: Maybe Role -> m ()
-    roleDom =
-      \case
-        Nothing -> blank
-        Just role ->
-          elAttr
-            "div"
-            (
-              "class" =: "role" <>
-              "title" =:
-                "L stands for Liberal, F stands for Fascist, H stands for Hitler"
-            )
-            (case role of
-              GoodRole -> text "L"
-              EvilRole -> text "F"
-              EvilLeaderRole -> text "H"
-            )
     inSelectPhase :: Dynamic t Bool
     inSelectPhase =
       (\(GameView {phase, playerId, presidentId}) ->

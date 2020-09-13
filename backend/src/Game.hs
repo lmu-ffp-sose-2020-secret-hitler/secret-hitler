@@ -418,9 +418,9 @@ executePlayer playerId gameOld@(Game {
     Nothing -> (gameOld, InvalidGameAction $ "Player " <> Text.pack (show playerId) <> " is not in this game")
     Just player ->
       let gameNew = gameOld & #players . ix playerId . #alive .~ False in
-      withGameEvent PlayerKilled { presidentId, playerId } $
+      withGameEvent PlayerExecuted { presidentId, playerId } $
       case player ^. #role of
-        EvilLeaderRole -> gameNew & #phase .~ GameOverPhase { reason = EvilLeaderKilled }
+        EvilLeaderRole -> gameNew & #phase .~ GameOverPhase { reason = EvilLeaderExecuted }
         _ -> endElectedGovernmentWithTermLimits chancellorId gameNew
 executePlayer _playerId game =
   (game, InvalidGameAction "Cannot execute a player outside of ExecutionPhase")

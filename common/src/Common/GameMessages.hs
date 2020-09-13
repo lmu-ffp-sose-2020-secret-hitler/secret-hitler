@@ -103,7 +103,7 @@ data GameOverReason =
   AllEvilPoliciesPlayed |
   AllGoodPoliciesPlayed |
   EvilLeaderElected |
-  EvilLeaderKilled
+  EvilLeaderExecuted
   deriving stock (Generic)
 instance FromJSON GameOverReason
 instance ToJSON GameOverReason
@@ -112,7 +112,7 @@ gameOverWinner :: GameOverReason -> Alignment
 gameOverWinner AllEvilPoliciesPlayed = Evil
 gameOverWinner AllGoodPoliciesPlayed = Good
 gameOverWinner EvilLeaderElected = Evil
-gameOverWinner EvilLeaderKilled = Good
+gameOverWinner EvilLeaderExecuted = Good
 
 isVotePhase :: GamePhase -> Bool
 isVotePhase VotePhase {} = True
@@ -178,7 +178,7 @@ data GameEvent =
   PresidentStoppedPeekingPolicies {
     presidentId :: PlayerId
   } |
-  PlayerKilled {
+  PlayerExecuted {
     presidentId :: PlayerId,
     playerId :: PlayerId
   } |

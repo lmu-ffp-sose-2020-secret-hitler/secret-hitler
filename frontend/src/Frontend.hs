@@ -212,7 +212,7 @@ gameUpdateEventText gameUpdate =
     Just PresidentStoppedPeekingPolicies { presidentId } ->
       text $ capitalize (playerNameWithTitle "president" presidentId)
         <> " took a peek at the next policies."
-    Just PlayerKilled { presidentId, playerId }
+    Just PlayerExecuted { presidentId, playerId }
       | playerId == myId ->
         elClass "span" "execution_notice" $
           text ("You were executed by president " <> playerName presidentId <> ".")
@@ -356,7 +356,7 @@ gameOverPhaseWidget reason = do
       AllEvilPoliciesPlayed -> "Fascists won by enacting enough policies!"
       AllGoodPoliciesPlayed -> "Liberals won by enacting enough policies!"
       EvilLeaderElected -> "Fascists won by electing their leader!"
-      EvilLeaderKilled -> "Liberals won by killing the Fascist leader!"
+      EvilLeaderExecuted -> "Liberals won by executing Hitler!"
     (ReturnToLobbyAction <$) <$> button "Return to Lobby"
 
 data TimeOfGovernment = Present | Past

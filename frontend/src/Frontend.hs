@@ -290,7 +290,7 @@ playerList gameView =
                     markOfficial
                     (fst <$> idAndPlayer)
                     gameView
-                  ) *>
+                  )
               )
         )
     )

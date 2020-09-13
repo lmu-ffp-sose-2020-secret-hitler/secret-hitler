@@ -223,37 +223,42 @@ phaseWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>
   GameView -> m (Event t ActionFromClient)
 phaseWidget
-  (GameView {phase, playerId, presidentId, currentHand, vetoUnlocked})
-  = case phase of
-    NominateChancellorPhase {}
-      | playerId == presidentId -> nominateChancellorPhaseWidget
-    VotePhase {} -> votePhaseWidget
-    PresidentDiscardPolicyPhase {}
-      | length currentHand >= 3 ->
-        discardPolicyPhaseWidget currentHand PresidentDiscardPolicy (pure never)
-    ChancellorDiscardPolicyPhase {}
-      | length currentHand >= 2 ->
-        discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy $
-          if vetoUnlocked
-          then
-            (GameAction ProposeVeto <$) <$> button "I wish to veto this agenda"
-          else pure never
-    PolicyPeekPhase {}
-      | length currentHand >= 3 ->
-        policyPeekPhaseWidget currentHand
-    ExecutionPhase {}
-      | playerId == presidentId -> executionPhaseWidget
-    PendingVetoPhase {}
-      | playerId == presidentId ->
-        fmap leftmost $
-        sequenceA $
-        [
-          (GameAction AcceptVeto <$) <$> button "I agree to the veto",
-          (GameAction RejectVeto <$) <$> button "nope"
-        ]
-    GameOverPhase { reason } ->
-      gameOverPhaseWidget reason
-    _ -> pure never
+  (GameView {players, phase, playerId, presidentId, currentHand, vetoUnlocked})
+    | not $ fromMaybe False (players ^. at playerId <&> view #alive) =
+      elClass "div" "death_notice" $ text "You are not alive."
+      *>
+      pure never
+    | otherwise =
+      case phase of
+        NominateChancellorPhase {}
+          | playerId == presidentId -> nominateChancellorPhaseWidget
+        VotePhase {} -> votePhaseWidget
+        PresidentDiscardPolicyPhase {}
+          | length currentHand >= 3 ->
+            discardPolicyPhaseWidget currentHand PresidentDiscardPolicy (pure never)
+        ChancellorDiscardPolicyPhase {}
+          | length currentHand >= 2 ->
+            discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy $
+              if vetoUnlocked
+              then
+                (GameAction ProposeVeto <$) <$> button "I wish to veto this agenda"
+              else pure never
+        PolicyPeekPhase {}
+          | length currentHand >= 3 ->
+            policyPeekPhaseWidget currentHand
+        ExecutionPhase {}
+          | playerId == presidentId -> executionPhaseWidget
+        PendingVetoPhase {}
+          | playerId == presidentId ->
+            fmap leftmost $
+            sequenceA $
+            [
+              (GameAction AcceptVeto <$) <$> button "I agree to the veto",
+              (GameAction RejectVeto <$) <$> button "nope"
+            ]
+        GameOverPhase { reason } ->
+          gameOverPhaseWidget reason
+        _ -> pure never
 
 nominateChancellorPhaseWidget :: DomBuilder t m => m (Event t ActionFromClient)
 nominateChancellorPhaseWidget = do

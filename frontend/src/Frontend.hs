@@ -384,12 +384,17 @@ playerList gameView =
             elDynClass'
               "div"
               (
-                ((<>)
-                  <$> bool "dead " T.empty . view #alive
-                  <*> bool "ineligible " T.empty . view #eligible
-                )
-                <$>
-                player
+                zipDynWith
+                  (\(PlayerView {alive, eligible}) (GameView {phase}) ->
+                     bool "dead " T.empty alive
+                     <>
+                     case phase of
+                       NominateChancellorPhase {} ->
+                         bool "ineligible " T.empty eligible
+                       _ -> T.empty
+                  )
+                  player
+                  gameView
               )
               (
                 dynText (view #name <$> player) *>

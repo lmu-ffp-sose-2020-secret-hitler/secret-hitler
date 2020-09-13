@@ -1,5 +1,5 @@
 :root {
-    --phase_height: 20vh;
+    --phase_height: 15vh;
     --gap_size: 8px;
 }
 
@@ -122,6 +122,10 @@ img {
 #event {
     grid-area: event;
     text-align: center;
+}
+#event>.execution_notice {
+    color: red;
+    font-weight: bold;
 }
 
 /* phase */

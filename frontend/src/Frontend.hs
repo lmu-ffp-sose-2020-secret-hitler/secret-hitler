@@ -159,10 +159,9 @@ gameUpdateEventText gameUpdate =
         <> " for the office of chancellor."
       el "br" blank
       text "Do you support the proposed government?"
-    Just VotePlaced { playerId, vote } | playerId == myId ->
+    Just VotePlaced { vote } ->
       text $ "You voted " <> (if vote then "for" else "against")
         <> " the proposed government, but you can still change your mind."
-    Just VotePlaced {} -> blank
     Just VoteSucceeded { presidentId, chancellorId } ->
       text $ playerName presidentId <> " and " <> playerName chancellorId
         <> " were elected as President and Chancellor."
@@ -176,8 +175,12 @@ gameUpdateEventText gameUpdate =
       text $ "Chancellor " <> playerName chancellorId <> " enacted a " <> policyText policy <> "."
     Just PresidentStoppedPeekingPolicies { presidentId } ->
       text $ "President " <> playerName presidentId <> " took a peek at the next policies."
-    Just PlayerKilled { presidentId, playerId } ->
-      text $ "President " <> playerName presidentId <> " executed " <> playerName playerId <> "."
+    Just PlayerKilled { presidentId, playerId }
+      | playerId == myId ->
+        elClass "span" "execution_notice" $
+          text ("You were executed by president " <> playerName presidentId <> ".")
+      | otherwise ->
+        text $ "President " <> playerName presidentId <> " executed " <> playerName playerId <> "."
     Just VetoProposed { chancellorId, presidentId } ->
       text $ "Chancellor " <> playerName chancellorId <> " proposed a veto to President "
         <> playerName presidentId <> "."

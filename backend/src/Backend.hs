@@ -241,7 +241,10 @@ sendGameUpdateToAll connections game@(Game {
 gameMessage :: Game -> Maybe GameEvent -> Int -> StateFromServer
 gameMessage game event playerId =
   GameFromServer $
-  GameUpdate (createGameView game playerId) (event)
+  GameUpdate (createGameView game playerId) (mfilter (playerMayReceiveEvent playerId) event)
+  where
+    playerMayReceiveEvent receiverId (VotePlaced { playerId }) = receiverId == playerId
+    playerMayReceiveEvent _receiverId _event = True
 
 createGameView :: Game -> Int -> GameView
 createGameView game@(Game {

@@ -6,6 +6,19 @@ Die Spieler treten in 2 Teams gegeneinander an, die Liberalen und die Faschisten
 Die Liberalen sind in der Überzahl und müssen herausfinden wer die geheimen Übeltäter sind, während Rundenweise Regierungen gute und schlechte Politiken erlassen.
 Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Spaß zu haben.
 
+## Build
+
+Execute
+
+```shell
+mkdir test-app
+ln -s $(nix-build -A exe --no-out-link)/* test-app/
+cp -r config test-app
+(cd test-app && ./backend)
+```
+
+as described on https://github.com/obsidiansystems/obelisk#locally.
+
 ## Develop
 
 - Execute `ob run` for a ghcid window. The web server is updated automatically. `-- $>` code comments are supported.

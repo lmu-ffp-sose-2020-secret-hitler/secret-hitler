@@ -165,7 +165,7 @@ gameUpdateEventText gameUpdate =
     Just VotePlaced {} -> blank
     Just VoteSucceeded { presidentId, chancellorId } ->
       text $ playerName presidentId <> " and " <> playerName chancellorId
-        <> " were as President and Chancellor."
+        <> " were elected as President and Chancellor."
     Just VoteFailed { presidentialCandidateId, chancellorCandidateId, policyEnacted } -> do
       text $ playerName presidentialCandidateId <> " and " <> playerName chancellorCandidateId
         <> " were not elected as President and Chancellor."

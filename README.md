@@ -6,6 +6,11 @@ Die Spieler treten in 2 Teams gegeneinander an, die Liberalen und die Faschisten
 Die Liberalen sind in der Überzahl und müssen herausfinden wer die geheimen Übeltäter sind, während Rundenweise Regierungen gute und schlechte Politiken erlassen.
 Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Spaß zu haben.
 
+## License
+
+* The Images and Game Idea are borrowed from http://www.secrethitler.com and licensed under [Creative Commons license BY–NC–SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+* The Code is licensed under [GNU General Public License v3.0](https://www.gnu.org/licenses/)
+
 ## Build
 
 1. [Install Obelisk](https://github.com/obsidiansystems/obelisk#installing-obelisk).

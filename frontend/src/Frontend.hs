@@ -6,6 +6,7 @@
 module Frontend where
 
 import Common.GameMessages
+import Data.Char (toUpper)
 import Data.Foldable (for_)
 import Data.Traversable (for)
 import Control.Monad.Fix (MonadFix)
@@ -149,13 +150,19 @@ gameUpdateEventText gameUpdate =
     player :: Int -> Maybe PlayerView
     player playerId = game ^. #players . at playerId
     playerName :: Int -> Text
-    playerName playerId = fromMaybe "" ((view #name) <$> player playerId)
+    playerName playerId
+      | playerId == myId = "you"
+      | otherwise = fromMaybe "unknown player" ((view #name) <$> player playerId)
+    playerNameWithTitle :: Text -> Int -> Text
+    playerNameWithTitle title playerId
+      | playerId == myId = "you"
+      | otherwise = title <> " " <> playerName playerId
   in
   case gameUpdate ^. #gameEvent of
     Nothing -> blank
     Just ChancellorNominated { presidentialCandidateId, chancellorCandidateId } -> do
-      text $ "Presidential Candidate " <> playerName presidentialCandidateId
-        <> " nominated " <> playerName chancellorCandidateId 
+      text $ capitalize (playerNameWithTitle "presidential candidate" presidentialCandidateId)
+        <> " nominated " <> playerName chancellorCandidateId
         <> " for the office of chancellor."
       el "br" blank
       text "Do you support the proposed government?"
@@ -164,33 +171,38 @@ gameUpdateEventText gameUpdate =
         <> " the proposed government, but you can still change your mind."
     Just VoteSucceeded { presidentId, chancellorId } ->
       text $ playerName presidentId <> " and " <> playerName chancellorId
-        <> " were elected as President and Chancellor."
+        <> " were elected as president and chancellor."
     Just VoteFailed { presidentialCandidateId, chancellorCandidateId, policyEnacted } -> do
       text $ playerName presidentialCandidateId <> " and " <> playerName chancellorCandidateId
-        <> " were not elected as President and Chancellor."
+        <> " were not elected as president and chancellor."
       chaosText policyEnacted
     Just PresidentDiscardedPolicy { presidentId } ->
-      text $ "President " <> playerName presidentId <> " discarded a policy."
+      text $ capitalize (playerNameWithTitle "president" presidentId) <> " discarded a policy."
     Just ChancellorEnactedPolicy { chancellorId, policy } ->
-      text $ "Chancellor " <> playerName chancellorId <> " enacted a " <> policyText policy <> "."
+      text $ capitalize (playerNameWithTitle "chancellor" chancellorId) <> " enacted a "
+        <> policyText policy <> "."
     Just PresidentStoppedPeekingPolicies { presidentId } ->
-      text $ "President " <> playerName presidentId <> " took a peek at the next policies."
+      text $ capitalize (playerNameWithTitle "president" presidentId)
+        <> " took a peek at the next policies."
     Just PlayerKilled { presidentId, playerId }
       | playerId == myId ->
         elClass "span" "execution_notice" $
           text ("You were executed by president " <> playerName presidentId <> ".")
       | otherwise ->
-        text $ "President " <> playerName presidentId <> " executed " <> playerName playerId <> "."
+        text $ capitalize (playerNameWithTitle "president" presidentId) <> " executed "
+          <> playerName playerId <> "."
     Just VetoProposed { chancellorId, presidentId } ->
-      text $ "Chancellor " <> playerName chancellorId <> " proposed a veto to President "
-        <> playerName presidentId <> "."
+      text $ capitalize (playerNameWithTitle "chancellor" chancellorId)
+        <> " proposed a veto to " <> (playerNameWithTitle "president" presidentId) <> "."
     Just VetoAccepted { presidentId, chancellorId, policyEnacted } -> do
-      text $ "President " <> playerName presidentId <> " accepted the veto proposed by Chancellor "
-        <> playerName chancellorId <> "."
+      text $ capitalize (playerNameWithTitle "president" presidentId)
+        <> " accepted the veto proposed by " <> (playerNameWithTitle "chancellor" chancellorId)
+        <> "."
       chaosText policyEnacted
     Just VetoRejected { presidentId, chancellorId } ->
-      text $ "President " <> playerName presidentId <> " rejected the veto proposed by Chancellor "
-        <> playerName chancellorId <> "."
+      text $ capitalize (playerNameWithTitle "president" presidentId)
+        <> " rejected the veto proposed by " <> (playerNameWithTitle "chancellor" chancellorId)
+        <> "."
     Just InvalidGameAction { message } -> text $ "Invalid action: " <> message
   where
     policyText :: Policy -> Text
@@ -204,6 +216,8 @@ gameUpdateEventText gameUpdate =
           el "br" blank
           text $ "Because of this the country was thrown into chaos, resulting in a "
             <> policyText policy <> "."
+    capitalize :: Text -> Text
+    capitalize t = t & ix 0 %~ toUpper
 
 phaseWidget ::
   (PostBuild t m, DomBuilder t m, MonadHold t m) =>

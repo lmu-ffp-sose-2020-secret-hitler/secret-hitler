@@ -244,16 +244,18 @@ gameOverPhaseWidget reason = do
       EvilLeaderKilled -> "Liberals won by killing the Fascist leader!"
     (ReturnToLobbyAction <$) <$> button "Return to Lobby"
 
+data TimeOfGovernment = Present | Past
+
 playerList ::
   forall t m.
   (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) =>
   Dynamic t GameView ->  m (Event t GameAction)
 playerList gameView =
   fmap (attachDynWithMaybe wrapInGameAction (view #phase <$> gameView)) $
-  fmap (gate $ current selectable) $
+  fmap (gate $ current inSelectPhase) $
   elDynAttr
     "div"
-    ((\s -> "id" =: "player_list" <> "class" =: bool "" "select" s) <$> selectable)
+    ((\s -> "id" =: "player_list" <> "class" =: bool "" "select" s) <$> inSelectPhase)
     (
       fmap switchDyn $
       (fmap . fmap) leftmost $
@@ -264,37 +266,97 @@ playerList gameView =
           fmap (view #players) $
           gameView
         )
-        (
-          \(idAndPlayer :: Dynamic t (Int, PlayerView)) ->
-          do
-            let player = snd <$> idAndPlayer
-            (reference, _) <-
-              elDynClass'
-                "div"
-                ((bool "dead" T.empty . view #alive) <$> player)
-                (do
-                  dynText (view #name <$> player)
-                  (
-                    dyn_ $
-                    fmap (bool blank presidentMark) $
-                    zipDynWith
-                      (==)
-                      (fst <$> idAndPlayer)
-                      (view #presidentId <$> gameView))
-                  (
-                    dyn_ $
-                    fmap (bool blank chancellorMark) $
-                    zipDynWith
-                      (\p c -> fromMaybe False $ (p ==) <$> c)
-                      (fst <$> idAndPlayer)
-                      chancellorIdCurrent)
+        (\(idAndPlayer :: Dynamic t (Int, PlayerView)) ->
+          let player = snd <$> idAndPlayer
+          in
+            fmap (tagDyn $ fst <$> idAndPlayer) $
+            fmap (domEvent Click) $
+            fmap fst $
+            elDynClass'
+              "div"
+              (
+                ((<>)
+                  <$> bool "dead " T.empty . view #alive
+                  <*> bool "ineligible " T.empty . view #eligible
                 )
-            pure $ tagDyn (fst <$> idAndPlayer) (domEvent Click reference)
+                <$>
+                player
+              )
+              (
+                dynText (view #name <$> player)
+                *>
+                (
+                  dyn_ $
+                  zipDynWith
+                    markOfficial
+                    (fst <$> idAndPlayer)
+                    gameView)
+              )
         )
     )
   where
-    selectable :: Dynamic t Bool
-    selectable =
+    markOfficial :: Int -> GameView -> m ()
+    markOfficial playerId (GameView {presidentId, phase})
+      | playerId == presidentId = presidentMark Present
+      | fromMaybe False $ (playerId ==) <$> chancellorIdGet phase =
+        chancellorMark Present
+      | 
+        fromMaybe False $
+        fmap (playerId ==) $
+        fmap (view #presidentId) $
+        previousGovernmentGet phase
+        = presidentMark Past
+      |
+        fromMaybe False $
+        fmap (playerId ==) $
+        fmap (view #chancellorId) $
+        previousGovernmentGet phase
+        = chancellorMark Past
+      | otherwise = pure ()
+    presidentMark :: TimeOfGovernment -> m ()
+    presidentMark timeOfGovernment =
+      elAttr
+        "img"
+        (
+          "title" =: "President" <>
+          "id" =: "president_mark" <>
+          "src" =: static @"president_mark.svg" <>
+          case timeOfGovernment of
+            Present -> mempty
+            Past -> "class" =: "previous"
+        )
+        blank
+    chancellorMark :: TimeOfGovernment -> m ()
+    chancellorMark timeOfGovernment =
+      elAttr
+        "img"
+        (
+          "title" =: "Chancellor" <>
+          "id" =: "chancellor_mark" <>
+          "src" =: static @"chancellor_mark.png" <>
+          case timeOfGovernment of
+            Present -> mempty
+            Past -> "class" =: "previous"
+        )
+        blank
+    chancellorIdGet :: GamePhase -> (Maybe Int)
+    chancellorIdGet =
+      \case
+        NominateChancellorPhase {} -> Nothing
+        VotePhase {chancellorCandidateId} -> Just chancellorCandidateId
+        PresidentDiscardPolicyPhase {chancellorId} -> Just chancellorId
+        ChancellorDiscardPolicyPhase {chancellorId} -> Just chancellorId
+        PolicyPeekPhase {chancellorId} -> Just chancellorId
+        ExecutionPhase {chancellorId} -> Just chancellorId
+        PendingVetoPhase {chancellorId} -> Just chancellorId
+        GameOverPhase {} -> Nothing
+    previousGovernmentGet :: GamePhase -> (Maybe Government)
+    previousGovernmentGet =
+      \case
+        NominateChancellorPhase {previousGovernment} -> previousGovernment
+        _ -> Nothing
+    inSelectPhase :: Dynamic t Bool
+    inSelectPhase =
       (\(GameView {phase, playerId, presidentId}) ->
         case phase of
           NominateChancellorPhase {}
@@ -304,40 +366,6 @@ playerList gameView =
           _ -> False
       )
       <$>
-      gameView
-    presidentMark :: m ()
-    presidentMark =
-      elAttr
-        "img"
-        (
-          "title" =: "President" <>
-          "id" =: "president_mark" <>
-          "src" =: static @"president_mark.svg"
-        )
-        blank
-    chancellorMark :: m ()
-    chancellorMark =
-      elAttr
-        "img"
-        (
-          "title" =: "Chancellor" <>
-          "id" =: "chancellor_mark" <>
-          "src" =: static @"chancellor_mark.png"
-        )
-        blank
-    chancellorIdCurrent :: Dynamic t (Maybe Int)
-    chancellorIdCurrent =
-      fmap
-        (\case
-          VotePhase {chancellorCandidateId} -> Just chancellorCandidateId
-          PresidentDiscardPolicyPhase {chancellorId} -> Just chancellorId
-          ChancellorDiscardPolicyPhase {chancellorId} -> Just chancellorId
-          PolicyPeekPhase {chancellorId} -> Just chancellorId
-          ExecutionPhase {chancellorId} -> Just chancellorId
-          PendingVetoPhase {chancellorId} -> Just chancellorId
-          _ -> Nothing
-        ) $
-      fmap (view #phase) $
       gameView
     wrapInGameAction :: GamePhase -> Int -> Maybe GameAction
     wrapInGameAction phase playerId =

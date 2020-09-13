@@ -89,10 +89,13 @@ img {
 #chancellor_mark {
     margin-right: .4em;
 }
-#player_list.select>div:not(.dead) {
+#player_list .previous {
+    filter: opacity(.5);
+}
+#player_list.select>div:not(.dead):not(.ineligible) {
     cursor: pointer;
 }
-#player_list.select>div:hover:not(.dead) {
+#player_list.select>div:hover:not(.dead):not(.ineligible) {
     background: #444;
     color: white;
     padding-left: .8em;

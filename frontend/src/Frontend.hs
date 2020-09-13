@@ -117,7 +117,6 @@ gameWidget gameUpdate =
       )
       blank
     imgStyle @"discard_pile.png" "grid-area: discard_pile" blank
-    elId "div" "event" $ text "event"
     phaseDependentAction <- elId "div" "phase" $
       -- fmap switchDyn $
       -- widgetHold

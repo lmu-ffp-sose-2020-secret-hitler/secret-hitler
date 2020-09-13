@@ -137,18 +137,53 @@ instance FromJSON GameAction
 instance ToJSON GameAction
 
 data GameEvent =
-  ChancellorNominated |
-  VotePlaced |
-  VoteSucceeded |
-  VoteFailed (Maybe Policy) |
-  PresidentDiscardedPolicy |
-  ChancellorEnactedPolicy Policy |
-  PresidentStoppedPeekingPolicies |
-  PlayerKilled |
-  VetoProposed |
-  VetoAccepted (Maybe Policy) |
-  VetoRejected |
-  Error Text
+  ChancellorNominated {
+    presidentialCandidateId :: Int,
+    chancellorCandidateId :: Int
+  } |
+  VotePlaced {
+    playerId :: Int,
+    vote :: Bool
+  } |
+  VoteSucceeded {
+    presidentId :: Int,
+    chancellorId :: Int
+  } |
+  VoteFailed {
+    presidentialCandidateId :: Int,
+    chancellorCandidateId :: Int,
+    policyEnacted :: Maybe Policy
+  } |
+  PresidentDiscardedPolicy {
+    presidentId :: Int
+  } |
+  ChancellorEnactedPolicy {
+    chancellorId :: Int,
+    policy :: Policy
+  } |
+  PresidentStoppedPeekingPolicies {
+    presidentId :: Int
+  } |
+  PlayerKilled {
+    presidentId :: Int,
+    playerId :: Int
+  } |
+  VetoProposed {
+    presidentId :: Int,
+    chancellorId :: Int
+  } |
+  VetoAccepted {
+    presidentId :: Int,
+    chancellorId :: Int,
+    policyEnacted :: Maybe Policy
+  } |
+  VetoRejected {
+    presidentId :: Int,
+    chancellorId :: Int
+  } |
+  InvalidGameAction {
+    message :: Text
+  }
   deriving stock (Generic)
 instance FromJSON GameEvent
 instance ToJSON GameEvent

@@ -1,5 +1,5 @@
 :root {
-    --phase_dependent_height: 20vh;
+    --phase_height: 20vh;
     --gap_size: 8px;
 }
 
@@ -9,16 +9,21 @@ body {
 
 #board {
     display: grid;
-    max-width: calc((100vh - var(--phase_dependent_height) - 3 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
+    max-width: calc((100vh - var(--phase_height) - 3 * var(--gap_size)) * (684 + 3972 + 684) / 1261 / 2);
     grid-template-rows: repeat(3, auto);
     grid-template-columns: 684fr 3972fr 684fr;
     grid-template-areas:
         "player_list board_fascist identity"
         "draw_pile board_liberal discard_pile"
-        "phase_dependent phase_dependent phase_dependent";
+        "event event event"
+        "phase phase phase";
     justify-items: center;
     align-items: center;
     gap: var(--gap_size);
+}
+
+#event {
+    grid-area: event;
 }
 
 #identity {
@@ -101,22 +106,22 @@ img {
     padding-left: .8em;
 }
 
-#phase_dependent {
-    grid-area: phase_dependent;
+#phase {
+    grid-area: phase;
 }
-#phase_dependent>div {
+#phase>div {
     display: flex;
     flex-direction: row;
     gap: var(--gap_size);
 }
 
 #vote_phase>img {
-    width: calc(var(--phase_dependent_height) * 941 / 648);
+    width: calc(var(--phase_height) * 941 / 648);
     cursor: pointer;
 }
 
 #policy_phase>img {
-    width: calc(var(--phase_dependent_height) * 439 / 671);
+    width: calc(var(--phase_height) * 439 / 671);
     cursor: pointer;
 }
 

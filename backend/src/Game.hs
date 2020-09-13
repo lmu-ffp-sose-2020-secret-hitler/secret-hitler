@@ -515,8 +515,8 @@ enactTopPolicy game@(Game { cardPile = policy : cardPileTail }) =
       let
         gameOverReason =
           case policy of
-            GoodPolicy | game ^. #goodPolicyCount < 5 -> Just AllGoodPoliciesPlayed
-            EvilPolicy | game ^. #evilPolicyCount < 6 -> Just AllEvilPoliciesPlayed
+            GoodPolicy | game ^. #goodPolicyCount >= 5 -> Just AllGoodPoliciesPlayed
+            EvilPolicy | game ^. #evilPolicyCount >= 6 -> Just AllEvilPoliciesPlayed
             _ -> Nothing
       in
       (game, gameOverReason, policy)

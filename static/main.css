@@ -50,7 +50,7 @@ img {
 #player_list>.dead {
     color: #999;
 }
-. role {
+.role {
     width: .8em;
     text-align: center;
 }

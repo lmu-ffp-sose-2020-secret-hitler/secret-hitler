@@ -8,7 +8,7 @@ Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Sp
 
 ## Build
 
-1. (Install Obelisk)[https://github.com/obsidiansystems/obelisk#installing-obelisk].
+1. [Install Obelisk](https://github.com/obsidiansystems/obelisk#installing-obelisk).
 
 2. Execute
 

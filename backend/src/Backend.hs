@@ -133,14 +133,15 @@ sendToAll connections message = do
   Text.putStrLn $ "Sending message to all clients: " <> (encodeAsText message)
   traverse_ (sendMessage message) connections
 
-sendToAllWithKey :: Aeson.ToJSON msg => IntMap WS.Connection -> (Int -> msg) -> IO ()
-sendToAllWithKey connections createMessage = do
-  case fst <$> IntMap.lookupMin connections of
-    Nothing -> return ()
-    Just minId -> Text.putStrLn $
-      "Sending different messages to all clients, message for first client: "
-      <> (encodeAsText $ createMessage minId)
-  void $ IntMap.traverseWithKey (sendMessage . createMessage) connections
+sendToAllWithKeyMaybe :: Aeson.ToJSON msg => IntMap WS.Connection -> (Int -> Maybe msg) -> IO ()
+sendToAllWithKeyMaybe connections createMessageMaybe =
+  void $ flip IntMap.traverseWithKey connections $ \id connection ->
+    case createMessageMaybe id of
+      Nothing -> return ()
+      Just message -> do
+        Text.putStrLn $ "Sending message to client " <> Text.pack (show id) <> ": "
+          <> encodeAsText message
+        sendMessage message connection
 
 sendMessage :: Aeson.ToJSON msg => msg -> WS.Connection -> IO ()
 sendMessage message connection = WS.sendTextData connection $ Aeson.encode message
@@ -236,15 +237,16 @@ sendGameUpdateToAll :: IntMap WS.Connection -> Game -> Maybe GameEvent -> IO ()
 sendGameUpdateToAll connections game@(Game {
   players
 }) gameEvent =
-  sendToAllWithKey (IntMap.intersection connections players) (gameMessage game gameEvent)
+  sendToAllWithKeyMaybe (IntMap.intersection connections players) (gameMessage game gameEvent)
 
-gameMessage :: Game -> Maybe GameEvent -> Int -> StateFromServer
-gameMessage game event playerId =
-  GameFromServer $
-  GameUpdate (createGameView game playerId) (mfilter (playerMayReceiveEvent playerId) event)
-  where
-    playerMayReceiveEvent receiverId (VotePlaced { playerId }) = receiverId == playerId
-    playerMayReceiveEvent _receiverId _event = True
+gameMessage :: Game -> Maybe GameEvent -> Int -> Maybe StateFromServer
+gameMessage game event receiverId
+  | Just VotePlaced { playerId } <- event, receiverId /= playerId =
+    Nothing
+  | otherwise =
+    Just $
+    GameFromServer $
+    GameUpdate (createGameView game receiverId) event
 
 createGameView :: Game -> Int -> GameView
 createGameView game@(Game {
@@ -253,19 +255,19 @@ createGameView game@(Game {
   evilPolicyCount,
   presidentId,
   electionTracker
-}) playerId =
+}) viewerId =
   let
-    player = fromJust $ game ^. #players . at playerId
-    playerRole = player ^. #role
+    viewer = fromJust $ game ^. #players . at viewerId
+    viewerRole = viewer ^. #role
     currentHand = Game.currentHand game
     drawPileSize = length (Game.drawPile game)
   in
   GameView {
-    playerId,
-    playerRole,
-    players = IntMap.mapWithKey (playerView playerRole game) (game ^. #players),
+    playerId = viewerId,
+    playerRole = viewerRole,
+    players = IntMap.mapWithKey (playerView viewerRole game) (game ^. #players),
     phase,
-    currentHand = filter (const $ Game.isPlayerAllowedToAct playerId game) currentHand,
+    currentHand = filter (const $ Game.isPlayerAllowedToAct viewerId game) currentHand,
     drawPileSize,
     discardPileSize = 6+11 - drawPileSize - (length currentHand) - goodPolicyCount - evilPolicyCount,
     goodPolicyCount,

@@ -265,7 +265,7 @@ phaseWidget
         discardPolicyPhaseWidget currentHand ChancellorDiscardPolicy $
           if vetoUnlocked
           then
-            (GameAction ProposeVeto <$) <$> button "I wish to veto this agenda"
+            button (GameAction ProposeVeto) "I wish to veto this agenda"
           else pure never
     PolicyPeekPhase {}
       | length currentHand >= 3 ->
@@ -277,8 +277,8 @@ phaseWidget
         fmap leftmost $
         sequenceA $
         [
-          (GameAction AcceptVeto <$) <$> button "I agree to the veto",
-          (GameAction RejectVeto <$) <$> button "nope"
+          button (GameAction AcceptVeto) "I agree to the veto",
+          button (GameAction RejectVeto) "nope"
         ]
     _ -> pure never
 
@@ -335,8 +335,7 @@ policyPeekPhaseWidget currentHand = do
           GoodPolicy -> static @"policy_liberal.png"
           EvilPolicy -> static @"policy_fascist.png"
       ) blank
-    stopEvent <- button "Return policy tiles"
-    return $ (GameAction StopPeekingPolicies) <$ stopEvent
+    button (GameAction StopPeekingPolicies) "Return policy tiles"
 
 executionPhaseWidget :: DomBuilder t m => m (Event t ActionFromClient)
 executionPhaseWidget = do
@@ -351,7 +350,7 @@ gameOverPhaseWidget reason = do
       AllGoodPoliciesPlayed -> "Liberals won by enacting enough policies!"
       EvilLeaderElected -> "Fascists won by electing their leader!"
       EvilLeaderExecuted -> "Liberals won by executing Hitler!"
-    (ReturnToLobbyAction <$) <$> button "Return to Lobby"
+    button ReturnToLobbyAction "Return to Lobby"
 
 data TimeOfGovernment = Present | Past
 
@@ -548,8 +547,9 @@ policyTiles tileCount =
     [0 .. tileCount-1]
     (\i -> imgStyle @source (gridArea (1 + 2 * i) 0) blank)
 
-button :: DomBuilder t m => Text -> m (Event t ())
-button label =
+button :: DomBuilder t m => a -> Text -> m (Event t a)
+button event label =
+  (fmap . fmap) (const event) $
   fmap (domEvent Click) $
   fmap fst $
   elAttr' "button" ("type" =: "button") (text label)

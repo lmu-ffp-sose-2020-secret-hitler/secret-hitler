@@ -94,14 +94,22 @@ img {
 #draw_count {
     grid-area: draw_pile;
 }
+#discard_count {
+    grid-area: discard_pile;
+}
 #draw_count, #discard_count {
+    justify-self: stretch;
+    align-self: stretch;
+    display: grid;
+    grid-template-rows: 113fr 671fr 200fr;
+    grid-template-columns: 123fr 439fr 122fr;
+    grid-template-areas:
+        ". . ."
+        ". card ."
+        ". . .";
+    align-items: center;
     text-shadow: #000 5px 5px 10px;
     font-size: 8vh;
-    display: grid;
-    grid-template-rows: 1fr;
-    grid-template-columns: 123fr 439fr 122fr;
-    grid-template-areas: ". card .";
-    align-items: center;
 }
 #draw_count>*, #discard_count>* {
     grid-area: card;
@@ -134,10 +142,6 @@ img {
 }
 #election_tracker>img {
     grid-area: 2 / 2 / 3 / 3;
-}
-
-#discard_count {
-    grid-area: discard_pile;
 }
 
 /* event */

@@ -9,7 +9,9 @@ import GHC.Generics (Generic)
 
 newtype PlayerId =
   PlayerId Int
+  -- extension. DeriveGeneric
   deriving stock (Generic)
+  -- extension. DerivingStrategies, GeneralizedNewtypeDeriving
   deriving newtype (
     Enum,
     Eq,
@@ -79,6 +81,7 @@ data GamePhase =
     previousGovernment :: Maybe Government,
     chancellorCandidateId :: PlayerId
   } |
+  -- extension. DuplicateRecordFields
   PresidentDiscardPolicyPhase {
     chancellorId :: PlayerId
   } |

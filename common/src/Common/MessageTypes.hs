@@ -50,6 +50,7 @@ data LobbyAction =
 instance FromJSON LobbyAction
 instance ToJSON LobbyAction where
 
+-- extension. GADTs
 data StateFromServerTag a where
   LobbyFromServerTag :: StateFromServerTag LobbyView
   GameFromServerTag :: StateFromServerTag GameUpdate

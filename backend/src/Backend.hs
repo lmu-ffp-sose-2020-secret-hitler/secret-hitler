@@ -43,6 +43,7 @@ backend = Backend
     _backend_run =
       \serve -> do
         stateMVar <- newMVar newServerState
+        -- extension. GADTs
         serve $ \case
           BackendRoute_Missing :=> Identity () -> return ()
           BackendRoute_Main :=> Identity () -> do

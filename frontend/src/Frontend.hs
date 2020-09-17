@@ -70,6 +70,7 @@ lobbyWidget lobbyView = do
     (
       ("type" =: "button" <>) <$>
       (\playerCount ->
+        -- extension. MultiWayIf
         if| playerCount < 5 ->
               "disabled" =: "" <>
               "title" =: "You need at least 5 players to start the game"
@@ -95,6 +96,7 @@ gameWidget ::
 gameWidget gameUpdate =
   elId "div" "board" $ do
     playerSelect <- fmap (GameAction <$>) $ playerList gameView
+    -- extension. DataKinds, TypeApplications, OverloadedStrings
     imgStyle @"board_fascist_5_6.png" "grid-area: board_fascist" blank
     elId "div" "policies_fascist" $
       dyn_ ((policyTiles @"policy_fascist.png" . view #evilPolicyCount) <$> gameView)
@@ -153,7 +155,9 @@ gameWidget gameUpdate =
     -- display =<< (holdDyn StopPeekingPolicies phaseAction)
     pure $ leftmost [playerSelect, phaseAction]
   where
+    -- extension. ScopedTypeVariables
     gameView :: Dynamic t GameView
+    -- extension. OverloadedLabels
     gameView = view #gameView <$> gameUpdate
     displayIfPositive :: Int -> m ()
     displayIfPositive n =
@@ -245,6 +249,7 @@ phaseWidget ::
   (PostBuild t m, DomBuilder t m) =>
   GameView -> m (Event t ActionFromClient)
 phaseWidget
+  -- extension. NamedFieldPuns
   (GameView {players, phase, playerId, presidentId, currentHand, vetoUnlocked})
   = case phase of
     GameOverPhase { reason } ->
@@ -540,11 +545,13 @@ gridArea x y =
   )
 
 policyTiles ::
+  -- extension. KindSignatures, AllowAmbiguousTypes
   forall (source :: Symbol) t m.
   (DomBuilder t m, StaticFile source) => Int -> m ()
 policyTiles tileCount =
   for_
     [0 .. tileCount-1]
+    -- extension. TypeApplications
     (\i -> imgStyle @source (gridArea (1 + 2 * i) 0) blank)
 
 button :: DomBuilder t m => a -> Text -> m (Event t a)
@@ -579,6 +586,7 @@ application ::
   (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m, Prerender js t m) =>
   Maybe Text -> m ()
 application baseUri =
+  -- extension. RecursiveDo
   mdo
     stateFromServer :: Event t StateFromServer <-
       fmap (mapMaybe A.decodeStrict') $
@@ -607,6 +615,7 @@ application baseUri =
     widgetDynamic :: Event t (m (Event t ActionFromClient)) <-
       fmap updated $
       (fmap . fmap)
+        -- extension. GADTs, LambdaCase
         (\case
           LobbyFromServerTag :=> lobbyFromServer ->
             (fmap . fmap) LobbyAction (lobbyWidget lobbyFromServer)
@@ -649,5 +658,6 @@ collapseComposeIdentity ::
   Reflex t => DSum tag (Compose (Dynamic t) Identity) -> DSum tag (Dynamic t)
 collapseComposeIdentity = mapNaturalTransformer (coerceDynamic . getCompose)
 
+-- extension. RankNTypes
 mapNaturalTransformer :: (forall a. f a -> g a) -> DSum k f -> DSum k g
 mapNaturalTransformer f (sumTag :=> v) = sumTag :=> f v

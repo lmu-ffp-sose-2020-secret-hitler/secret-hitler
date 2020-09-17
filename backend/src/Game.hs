@@ -223,6 +223,7 @@ update actorId action = do
     RejectVeto -> return . rejectVeto
 
 withGameEvent :: GameEvent -> Game -> (Game, GameEvent)
+-- extension. TupleSections
 withGameEvent = flip (,)
 
 ----------------------------------------------------------------------------------------------------

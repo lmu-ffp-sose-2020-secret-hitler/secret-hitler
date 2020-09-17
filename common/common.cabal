@@ -30,7 +30,7 @@ library
   default-extensions:
     GADTs
     DataKinds
-    TypeFamilies
+    KindSignatures
     OverloadedStrings
     RankNTypes
     TypeApplications

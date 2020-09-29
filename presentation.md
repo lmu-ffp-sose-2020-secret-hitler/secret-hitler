@@ -1,0 +1,77 @@
+- disable ad blocker
+- lens
+  - traversed, heavy usage in `Game 248
+  - Map manipulation using `at` in `Lobby` 26
+  - Text manipulation using `id` in `Frontend` 242
+  - Evaluation von Generierungsmoeglichkeiten
+    - Control.Lens.TH.makeLenses
+      - field label collisions
+    - Control.Lens.TH.makeFields
+      - no type-changing optics
+      - class name collision in some cases
+      - if the first occurence of a field label is partial, affine traversals are generated without warning for all occurences
+      - if the first occurence of a field label is total, any following partial occurence will cause a compile-time error
+    - generic-lens
+      - orphan instance, if OverloadedLabels shall be used
+      - no affine traversals for partial fields, which I consider an advantage
+    - Optics.TH.makeFieldLabels
+      - affine traversals for partial fields, which I consider a disadvantage
+      - no van Laarhoven encoding
+- GUI-Programmierung
+  - container tree
+    - Frontend 122
+    - Frontend 97, playerList 357
+  - FRP
+    - lobbyWidget, gameWidget
+    - elDynAttr 101
+    - dyn 147
+    - phaseWidget 244
+      - VotePhase, votePhaseWidget
+      - PendingVetoPhase, button 550
+    - application
+      - \
+        Dynamic StateFromServer ->
+        (Dynamic LobbyView -> m (Event LobbyAction)) ->
+        (Dynamic GameUpdate -> m (Event GameAction)) ->
+        m (Event ActionFromClient)
+      - widgetHold :: Dynamic (m a) -> m (Dynamic a)
+      - eitherDyn :: Dynamic (Either a b) -> Dynamic (Either (Dynamic a) (Dynamic b))
+      - RecursiveDo
+    - Evaluation von Bibliotheken
+      - Threepenny
+        - `String` statt `Text`
+        - keine Optiken, erfindet sie teilweise neu
+        - jQuery
+        - imperatives Aufbauen der widgets wie in JavaScript
+        - erzwingt FRP nicht
+        - enthaelt tatsaechlich nicht reactive-banana
+          - nur first order FRP
+          - https://github.com/HeinrichApfelmus/threepenny-gui/issues/41
+          - https://stackoverflow.com/questions/28500769/dynamic-elements-based-on-behaviour-in-threepenny-gui#comment45415841_28531619
+          - https://stackoverflow.com/questions/33019640/reactive-banana-webkit-dom-boilerplate
+          - https://github.com/HeinrichApfelmus/threepenny-gui/issues/180
+          - threepenny hat eventuell keine Zukunft und koennte als Vorgaenger von reflex betrachtet werden
+        - aelter
+        - weniger in der Industrie eingesetzt
+        - schlechter ausgebaut
+      - Reflex-Dom
+        - GHCJS
+        - erzwingt FRP
+        - komplexere API, teilweise fuer typsicherheit, aber teilweise auch fuer Effizienz
+        - umfassendes framework, das unsere tooling-Wahl einschraenkt
+- type level programming
+  - Beispiel `policyTiles`
+    - TypeApplications
+    - `Symbol` mit `DataKinds`, `KindSignatures`
+  - `DSum` mit GADTs
+    - factorDyn :: Dynamic (DSum k Identity) -> Dynamic (DSum k Dynamic)
+    - factorDyn :: Dynamic (DSum k v) -> Dynamic (DSum k (Compose (Dynamic t) v))
+    - StateFromServerTag
+    - reflex routing in `Backend`
+    - abstract over sum types with type parameter for type constructor
+- concurrency
+  - exception safe owing to modifyMVar (`stateMVar`)
+  - concurrent channel instead of network IO while holding mutex
+- custom monad transformer
+- schoene Traversable-Anwendung in `Game` 296
+- WSL 2

@@ -1,8 +1,11 @@
 - disable ad blocker
-- lens
-  - traversed, heavy usage in `Game 248
+- Architektur
+  - Lobby <-> Game
+  - Frontend <-> Backend
+- funktionale Optiken
+  - traversed, heavy usage in `Game` 248
   - Map manipulation using `at` in `Lobby` 26
-  - Text manipulation using `id` in `Frontend` 242
+  - Text manipulation using `ix` in `Frontend` 242
   - Evaluation von Generierungsmoeglichkeiten
     - Control.Lens.TH.makeLenses
       - field label collisions
@@ -65,7 +68,7 @@
     - `Symbol` mit `DataKinds`, `KindSignatures`
   - `DSum` mit GADTs
     - factorDyn :: Dynamic (DSum k Identity) -> Dynamic (DSum k Dynamic)
-    - factorDyn :: Dynamic (DSum k v) -> Dynamic (DSum k (Compose (Dynamic t) v))
+    - factorDyn :: Dynamic (DSum k v) -> Dynamic (DSum k (Compose Dynamic v))
     - StateFromServerTag
     - reflex routing in `Backend`
     - abstract over sum types with type parameter for type constructor
@@ -75,3 +78,6 @@
 - custom monad transformer
 - schoene Traversable-Anwendung in `Game` 296
 - WSL 2
+
+- architektur
+- code-Schnipsel ohne Erklaerung, aber mit github links

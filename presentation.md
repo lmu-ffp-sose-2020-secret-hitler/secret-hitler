@@ -1,7 +1,3 @@
-- disable ad blocker
-- Architektur
-  - Lobby <-> Game
-  - Frontend <-> Backend
 - funktionale Optiken
   - traversed, heavy usage in `Game` 248
   - Map manipulation using `at` in `Lobby` 26
@@ -9,16 +5,17 @@
   - Evaluation von Generierungsmoeglichkeiten
     - Control.Lens.TH.makeLenses
       - field label collisions
+      - affine traversals for partial fields without warning. I consider this a disadvantage.
     - Control.Lens.TH.makeFields
       - no type-changing optics
-      - class name collision in some cases
-      - if the first occurence of a field label is partial, affine traversals are generated without warning for all occurences
-      - if the first occurence of a field label is total, any following partial occurence will cause a compile-time error
+      - class name collisions in some cases
+      - If the first occurence of a field label is partial, affine traversals are generated for all occurences without warning. I consider this a disadvantage.
+      - If the first occurence of a field label is total, any following partial occurence will cause a compile-time error.
     - generic-lens
       - orphan instance, if OverloadedLabels shall be used
-      - no affine traversals for partial fields, which I consider an advantage
+      - no affine traversals for partial fields. I consider this an advantage.
     - Optics.TH.makeFieldLabels
-      - affine traversals for partial fields, which I consider a disadvantage
+      - affine traversals for partial fields without warning. I consider this a disadvantage.
       - no van Laarhoven encoding
 - GUI-Programmierung
   - container tree
@@ -41,26 +38,26 @@
       - eitherDyn :: Dynamic (Either a b) -> Dynamic (Either (Dynamic a) (Dynamic b))
       - RecursiveDo
     - Evaluation von Bibliotheken
-      - Threepenny
+      - Threepenny-GUI
         - `String` statt `Text`
-        - keine Optiken, erfindet sie teilweise neu
+        - keine Optiken, werden teilweise neuerfunden
         - jQuery
         - imperatives Aufbauen der widgets wie in JavaScript
         - erzwingt FRP nicht
         - enthaelt tatsaechlich nicht reactive-banana
           - nur first order FRP
-          - https://github.com/HeinrichApfelmus/threepenny-gui/issues/41
+          - https://github.com/HeinrichApfelmus/threepenny-gui/issues/41#issuecomment-23661131
           - https://stackoverflow.com/questions/28500769/dynamic-elements-based-on-behaviour-in-threepenny-gui#comment45415841_28531619
           - https://stackoverflow.com/questions/33019640/reactive-banana-webkit-dom-boilerplate
           - https://github.com/HeinrichApfelmus/threepenny-gui/issues/180
-          - threepenny hat eventuell keine Zukunft und koennte als Vorgaenger von reflex betrachtet werden
+          - Threepenny-GUI hat eventuell keine Zukunft und koennte als Vorgaenger von Reflex-Dom betrachtet werden.
         - aelter
         - weniger in der Industrie eingesetzt
         - schlechter ausgebaut
       - Reflex-Dom
         - GHCJS
         - erzwingt FRP
-        - komplexere API, teilweise fuer typsicherheit, aber teilweise auch fuer Effizienz
+        - komplexere API, teilweise fuer Typsicherheit, aber teilweise auch fuer Effizienz
         - umfassendes framework, das unsere tooling-Wahl einschraenkt
 - type level programming
   - Beispiel `policyTiles`
@@ -78,6 +75,3 @@
 - custom monad transformer
 - schoene Traversable-Anwendung in `Game` 296
 - WSL 2
-
-- architektur
-- code-Schnipsel ohne Erklaerung, aber mit github links

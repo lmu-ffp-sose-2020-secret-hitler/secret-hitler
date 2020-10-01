@@ -6,6 +6,8 @@ Die Spieler treten in 2 Teams gegeneinander an, die Liberalen und die Faschisten
 Die Liberalen sind in der Überzahl und müssen herausfinden wer die geheimen Übeltäter sind, während Rundenweise Regierungen gute und schlechte Politiken erlassen.
 Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Spaß zu haben.
 
+![Screenshot](docs/screenshot.png)
+
 ## License
 
 * The images and rules are borrowed from http://www.secrethitler.com and licensed under [Creative Commons license BY–NC–SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

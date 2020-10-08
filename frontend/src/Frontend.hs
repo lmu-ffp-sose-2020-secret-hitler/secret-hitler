@@ -2,7 +2,6 @@ module Frontend where
 
 import Common.GameMessages
 import Data.Char (toUpper)
-import Data.Coerce (Coercible, coerce)
 import Data.Foldable (for_)
 import Data.Traversable (for)
 import Control.Monad.Fix (MonadFix)
@@ -646,8 +645,9 @@ stateFromServerDyn ::
 stateFromServerDyn =
   (fmap . fmap) collapseComposeIdentity . factorDyn . fmap stateFromServerToDSum
 
-collapseComposeIdentity :: Functor f => DSum tag (Compose f Identity) -> DSum tag f
-collapseComposeIdentity = mapNaturalTransformer (fmap coerce . getCompose)
+collapseComposeIdentity ::
+  Reflex t => DSum tag (Compose (Dynamic t) Identity) -> DSum tag (Dynamic t)
+collapseComposeIdentity = mapNaturalTransformer (coerceDynamic . getCompose)
 
 mapNaturalTransformer :: (forall a. f a -> g a) -> DSum k f -> DSum k g
 mapNaturalTransformer f (sumTag :=> v) = sumTag :=> f v

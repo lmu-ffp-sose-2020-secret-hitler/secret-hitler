@@ -1,21 +1,23 @@
-# secret-hitler
+# Multiplayer Online Secret Hitler
 
-Eine Haskell Implementierung des Spiels Secret Hilter (http://www.secrethitler.com).
-Hierbei handelt es sich um ein Gesellschaftsspiel für 5 bis 10 Spieler, bei dem es darum geht, den geheimen Hitler zu entlarven und zu stoppen.
-Die Spieler treten in 2 Teams gegeneinander an, die Liberalen und die Faschisten.
-Die Liberalen sind in der Überzahl und müssen herausfinden wer die geheimen Übeltäter sind, während Rundenweise Regierungen gute und schlechte Politiken erlassen.
-Es geht darum sich gegenseitig anzulügen (zum Beispiel über Voice-Chat) und Spaß zu haben.
+> Secret Hitler is a social deduction game for 5-10 people about finding and stopping the Secret Hitler.
+
+> Players are secretly divided into two teams: the liberals, who have a majority, and the fascists, who are hidden to everyone but each other. If the liberals can learn to trust each other, they have enough votes to control the elections and save the day. But the fascists will say whatever it takes to get elected, advance their agenda, and win the game.
+
+https://www.secrethitler.com
+
+It is all about lying to each other (for example over voice chat) and having fun.
 
 ![Screenshot](docs/screenshot.png)
 
-## License
-
-* The images and rules are borrowed from http://www.secrethitler.com and licensed under [Creative Commons license BY–NC–SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-* The Code is licensed under [GNU General Public License v3.0](https://www.gnu.org/licenses/)
+## Used technologies
+* [Haskell](https://www.haskell.org), the leading statically typed, purely functional, lazily evaluated programming language
+* [Reflex-DOM](https://github.com/obsidiansystems/obelisk), the most advanced industrial-grade Haskell web framework supporting and enforcing pure classic [Functional Reactive Programming (FRP)](https://wiki.haskell.org/Functional_Reactive_Programming)
+* [lens](https://hackage.haskell.org/package/lens), [generic-lens](https://hackage.haskell.org/package/generic-lens), [OverloadedLabels](https://downloads.haskell.org/ghc/latest/docs/html/users_guide/glasgow_exts.html#extension-OverloadedLabels)
 
 ## Build
 
-1. [Install Nix](https://nixos.org).
+1. Follow step 1 and 2 of https://github.com/obsidiansystems/obelisk/#installing-obelisk. There is no need to perform step 3.
 2. Execute
 
 ```shell
@@ -34,3 +36,8 @@ as described on https://github.com/obsidiansystems/obelisk#locally.
 - Execute `ob run` for a ghcid window. The web server is updated automatically. `-- $>` code comments are supported.
 - Execute `ob repl` for a ghci prompt. Load a module using `:l Game`.
 - In the directory `backend`, execute `ob shell` and then `cabal run :test` to execute `main` in `test/main.hs`.
+
+## License
+
+* The images and rules are borrowed from http://www.secrethitler.com and licensed under [Creative Commons license BY–NC–SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+* The Code is licensed under [GNU General Public License v3.0](https://www.gnu.org/licenses/)
